@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/analysis_results_view.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -9,6 +10,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> {
   final TextEditingController _tickerController = TextEditingController();
+  bool _showResults = false;
 
   @override
   void dispose() {
@@ -19,6 +21,9 @@ class _HomePageState extends State<HomePage> {
   void _searchStock() {
     final String ticker = _tickerController.text.trim();
     if (ticker.isNotEmpty) {
+      setState(() {
+        _showResults = true;
+      });
       // TODO: Implement stock data fetching logic
       print('Searching for stock: $ticker');
     }
@@ -27,9 +32,7 @@ class _HomePageState extends State<HomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Stock Analyzer'),
-      ),
+      appBar: AppBar(title: const Text('Stock Analyzer')),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
@@ -46,6 +49,10 @@ class _HomePageState extends State<HomePage> {
               onPressed: _searchStock,
               child: const Text('Search'),
             ),
+            if (_showResults) ...[
+              const SizedBox(height: 16.0),
+              Expanded(child: AnalysisResultsView()),
+            ],
           ],
         ),
       ),
