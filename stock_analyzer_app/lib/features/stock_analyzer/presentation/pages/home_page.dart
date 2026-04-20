@@ -51,7 +51,7 @@ class _HomePageState extends State<HomePage> {
             ),
             if (_showResults) ...[
               const SizedBox(height: 16.0),
-              Expanded(child: AnalysisResultsView()),
+              Expanded(child: AnalysisResultsView(ticker: _tickerController.text.trim())),
             ],
           ],
         ),

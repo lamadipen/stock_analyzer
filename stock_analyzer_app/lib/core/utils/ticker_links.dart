@@ -1,0 +1,11 @@
+/// Returns a map {sourceName : url} for the entered ticker.
+Map<String, String> buildFinancialLinks(String ticker) {
+  final String upper = ticker.toUpperCase();
+  return {
+    'Seeking Alpha': 'https://seekingalpha.com/symbol/$upper/income-statement',
+    'Stock Analysis': 'https://stockanalysis.com/stocks/$upper/financials/',
+    'WSJ': 'https://www.wsj.com/market-data/quotes/XE/$upper/financials/annual/income-statement',
+    'ADVFN': 'https://www.advfn.com/stock-market/NASDAQ/$upper/financials/stats-and-ratios',
+    'MarketWatch': 'https://www.marketwatch.com/investing/stock/$upper/financials?mod=mw_quote_tab',
+  };
+}
