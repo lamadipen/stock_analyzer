@@ -25,3 +25,13 @@ Map<String, String> buildProfitabilityLinks(String ticker) {
         'https://www.macrotrends.net/stocks/charts/$upper/${upper.toLowerCase()}/gross-profit',
   };
 }
+
+/// Debt & solvency deep-links
+Map<String, String> buildDebtLinks(String ticker) {
+  final String upper = ticker.toUpperCase();
+  return {
+    'Finviz Debt': 'https://finviz.com/quote.ashx?t=$upper&p=d',
+    'Stock Analysis Ratios':
+        'https://stockanalysis.com/stocks/$upper/financials/ratios/',
+  };
+}
