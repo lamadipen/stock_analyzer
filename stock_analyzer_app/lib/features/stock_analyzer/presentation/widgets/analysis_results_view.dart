@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/collapsible_section.dart';
-import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/financial_highlights_content.dart';
-import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/sector_comparison_content.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/content_registry.dart';
 
 class AnalysisResultsView extends StatelessWidget {
   final String ticker;
@@ -23,27 +22,16 @@ class AnalysisResultsView extends StatelessWidget {
       'Institutional Ownership',
       'Insider Activity',
       'Sector Comparison',
-      'Short Term Investment',
-      'Resources',
+      'Short Term Investment', // This will use the default widget
+      'Resources', // This will use the default widget
     ];
 
     return ListView.builder(
       itemCount: analysisSections.length,
       itemBuilder: (context, index) {
         final section = analysisSections[index];
-        Widget content;
-
-        if (section == 'Financial Highlights') {
-          content = FinancialHighlightsContent(ticker: ticker);
-        } else if (section == 'Financial Highlights') {
-          content = FinancialHighlightsContent(ticker: ticker);
-        } else if (section == 'Institutional Ownership') {
-          content = FinancialHighlightsContent(ticker: ticker);
-        } else if (section == 'Sector Comparison') {
-          content = SectorComparisonContent(ticker: ticker);
-        } else {
-          content = Text('Details for $section will be displayed here.');
-        }
+        // The if-else chain is now replaced with a single lookup
+        final content = getContentWidget(section, ticker);
 
         return CollapsibleSection(title: section, content: content);
       },
