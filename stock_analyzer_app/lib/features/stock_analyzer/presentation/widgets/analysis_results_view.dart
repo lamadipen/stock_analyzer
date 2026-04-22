@@ -51,7 +51,8 @@ class FinancialHighlightsContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final links = buildFinancialLinks(ticker);
+    final finLinks = buildFinancialLinks(ticker);
+    final profLinks = buildProfitabilityLinks(ticker);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -87,18 +88,62 @@ class FinancialHighlightsContent extends StatelessWidget {
 
         // ---- reference chips ----
         const Text(
-          'References:',
+          'Income Statement References:',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: links.entries.map((e) {
+          children: finLinks.entries.map((e) {
             return ActionChip(
               label: Text(e.key),
               onPressed: () => _launch(e.value),
               backgroundColor: Colors.blueGrey.shade50,
+            );
+          }).toList(),
+        ),
+
+        const SizedBox(height: 16),
+
+        // ---- profitability metrics ----
+        const Text(
+          'Profitability Metrics',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        const Text('Gross Profit Margin: consistent or increasing for 5 years.'),
+        const SizedBox(height: 8),
+        const Text('Net Profit Margin: consistent or increasing for 5 years.'),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: const Text(
+            'Increasing / Consistent for 5 Years (Greater than 10% is considered good).',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+
+        const SizedBox(height: 16),
+
+        // ---- profitability references ----
+        const Text(
+          'Profitability References:',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: profLinks.entries.map((e) {
+            return ActionChip(
+              label: Text(e.key),
+              onPressed: () => _launch(e.value),
+              backgroundColor: Colors.green.shade50,
             );
           }).toList(),
         ),
