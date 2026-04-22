@@ -35,6 +35,12 @@ class AnalysisResultsView extends StatelessWidget {
 
         if (section == 'Financial Highlights') {
           content = FinancialHighlightsContent(ticker: ticker);
+        } else if (section == 'Financial Highlights') {
+          content = FinancialHighlightsContent(ticker: ticker);
+        } else if (section == 'Institutional Ownership') {
+          content = FinancialHighlightsContent(ticker: ticker);
+        } else if (section == 'Sector Comparison') {
+          content = FinancialHighlightsContent(ticker: ticker);
         } else {
           content = Text('Details for $section will be displayed here.');
         }
