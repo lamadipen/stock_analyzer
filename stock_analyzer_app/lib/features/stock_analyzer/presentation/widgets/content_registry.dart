@@ -12,6 +12,7 @@ import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/sale_target_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/sector_comparison_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/valuation_method_content.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/short_term_investment_guide_content.dart';
 
 typedef ContentWidgetBuilder = Widget Function(String ticker);
 
@@ -32,6 +33,8 @@ final Map<String, ContentWidgetBuilder> contentRegistry = {
       InstitutionalOwnershipContent(ticker: ticker),
   'Insider Activity': (ticker) => InsiderActivityContent(ticker: ticker),
   'Sector Comparison': (ticker) => SectorComparisonContent(ticker: ticker),
+  'Short Term Investment': (ticker) =>
+      ShortTermInvestmentGuideContent(ticker: ticker),
   // Default/fallback widget
   'default': (ticker) =>
       Text('Details for the selected section will be displayed here.'),
