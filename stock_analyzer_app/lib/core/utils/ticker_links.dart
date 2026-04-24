@@ -65,3 +65,11 @@ Map<String, String> buildImplivedVolatilityLinks(String ticker) {
         'https://www.alphaquery.com/stock/$upper/volatility-option-statistics/30-day/iv-mean',
   };
 }
+
+Map<String, String> buildCompoundInterestLinks(String ticker) {
+  final String upper = ticker.toUpperCase();
+  return {
+    'Compound Interest Calculator':
+        'https://www.calculatorsoup.com/calculators/financial/compound-interest-calculator.php',
+  };
+}
