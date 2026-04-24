@@ -67,9 +67,23 @@ Map<String, String> buildImplivedVolatilityLinks(String ticker) {
 }
 
 Map<String, String> buildCompoundInterestLinks(String ticker) {
-  final String upper = ticker.toUpperCase();
   return {
     'Compound Interest Calculator':
         'https://www.calculatorsoup.com/calculators/financial/compound-interest-calculator.php',
+  };
+}
+
+Map<String, String> buildCompetitorStudyLinks(String ticker) {
+  final String upper = ticker.toUpperCase();
+  final String lower = ticker.toLowerCase();
+  return {
+    'MarketBeat Peer Comparison':
+        'https://www.marketbeat.com/stocks/NYSE/$upper/competitors-and-alternatives/',
+    'Seeking Alpha Peer Comparison':
+        'https://seekingalpha.com/symbol/$upper/peers/comparison',
+    'Seeking Alpha Charting': 'https://seekingalpha.com/symbol/$upper/charting',
+    'MarketWatch Chart':
+        'https://www.marketwatch.com/investing/stock/$lower/charts?mod=mw_quote_tab',
+    'CNBC Peers': 'https://www.cnbc.com/quotes/$upper?tab=peers',
   };
 }
