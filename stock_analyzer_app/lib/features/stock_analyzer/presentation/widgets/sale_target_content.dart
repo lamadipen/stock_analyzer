@@ -36,6 +36,12 @@ class SaleTargetContent extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 16),
+        const Text('Sale Target Calculated:'),
+
+        //TODO
+        const SizedBox(height: 16),
+        const Text('Exist Strategy:'),
+        const SizedBox(height: 16),
         // ---- profitability references ----
         const Text(
           'Compound Interest References:',
