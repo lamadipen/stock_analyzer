@@ -49,3 +49,11 @@ Map<String, String> buildInsiderActivityLinks(String ticker) {
         'https://www.marketwatch.com/investing/stock/$upper/company-profile?mod=mw_quote_tab',
   };
 }
+
+Map<String, String> buildInstitutionalOwnershipLinks(String ticker) {
+  final String upper = ticker.toUpperCase();
+  return {
+    'Marketbeat':
+        'https://www.marketbeat.com/stocks/NASDAQ/AAPL/institutional-ownership/',
+  };
+}
