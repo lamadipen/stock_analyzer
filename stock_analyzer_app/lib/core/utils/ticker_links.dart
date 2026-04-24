@@ -54,6 +54,14 @@ Map<String, String> buildInstitutionalOwnershipLinks(String ticker) {
   final String upper = ticker.toUpperCase();
   return {
     'Marketbeat':
-        'https://www.marketbeat.com/stocks/NASDAQ/AAPL/institutional-ownership/',
+        'https://www.marketbeat.com/stocks/NASDAQ/$upper/institutional-ownership/',
+  };
+}
+
+Map<String, String> buildImplivedVolatilityLinks(String ticker) {
+  final String upper = ticker.toUpperCase();
+  return {
+    'Alphaquery':
+        'https://www.alphaquery.com/stock/$upper/volatility-option-statistics/30-day/iv-mean',
   };
 }
