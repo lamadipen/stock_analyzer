@@ -36,7 +36,16 @@ Map<String, String> buildDebtLinks(String ticker) {
   };
 }
 
-/// Profitability-focused deep-links
+/// sector comparison deep-links
 Map<String, String> buildSectorComparisionLinks(String ticker) {
   return {'Finviz': 'https://finviz.com/groups.ashx?g=sector&v=210&o=name'};
+}
+
+Map<String, String> buildInsiderActivityLinks(String ticker) {
+  final String upper = ticker.toUpperCase();
+  return {
+    'GuruFocus': 'https://www.gurufocus.com/stock/$upper/insider',
+    'MarketWatch':
+        'https://www.marketwatch.com/investing/stock/$upper/company-profile?mod=mw_quote_tab',
+  };
 }

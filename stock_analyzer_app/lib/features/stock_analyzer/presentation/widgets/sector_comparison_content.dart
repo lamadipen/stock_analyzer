@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
 
 class SectorComparisonContent extends StatelessWidget {
   final String ticker;
@@ -38,7 +38,7 @@ class SectorComparisonContent extends StatelessWidget {
         const SizedBox(height: 16),
         // ---- profitability references ----
         const Text(
-          'Profitability References:',
+          'Sector Performance References:',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
