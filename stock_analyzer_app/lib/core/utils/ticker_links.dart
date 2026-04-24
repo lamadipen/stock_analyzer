@@ -35,3 +35,8 @@ Map<String, String> buildDebtLinks(String ticker) {
         'https://stockanalysis.com/stocks/$upper/financials/ratios/',
   };
 }
+
+/// Profitability-focused deep-links
+Map<String, String> buildSectorComparisionLinks(String ticker) {
+  return {'Finviz': 'https://finviz.com/groups.ashx?g=sector&v=210&o=name'};
+}
