@@ -1,8 +1,19 @@
 import 'package:flutter/material.dart';
+import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/collapsible_section.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/content_registry.dart';
 
 enum _AppAnalysisLayout { classic, workspace, focus }
+
+enum _ReviewStatus {
+  notStarted('Not Started'),
+  inReview('In Review'),
+  complete('Complete');
+
+  const _ReviewStatus(this.label);
+
+  final String label;
+}
 
 class AnalysisResultsView extends StatefulWidget {
   final String ticker;
@@ -15,6 +26,8 @@ class AnalysisResultsView extends StatefulWidget {
 class _AnalysisResultsViewState extends State<AnalysisResultsView> {
   _AppAnalysisLayout _layout = _AppAnalysisLayout.workspace;
   int _selectedIndex = 0;
+  bool _isLoadingStatuses = true;
+  final Map<String, _ReviewStatus> _reviewStatuses = {};
 
   final List<_AnalysisSection> _sections = const [
     _AnalysisSection(
@@ -91,6 +104,73 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    _loadReviewStatuses();
+  }
+
+  @override
+  void didUpdateWidget(covariant AnalysisResultsView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.ticker != widget.ticker) {
+      _selectedIndex = 0;
+      _reviewStatuses.clear();
+      _loadReviewStatuses();
+    }
+  }
+
+  Future<void> _loadReviewStatuses() async {
+    setState(() => _isLoadingStatuses = true);
+    final statuses = await StockAnalysisStorage.loadReviewStatuses(
+      ticker: widget.ticker,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      for (final section in _sections) {
+        _reviewStatuses[section.title] = _statusFromStorage(
+          statuses[section.title],
+        );
+      }
+      _isLoadingStatuses = false;
+    });
+  }
+
+  Future<void> _setReviewStatus(
+    _AnalysisSection section,
+    _ReviewStatus status,
+  ) async {
+    setState(() => _reviewStatuses[section.title] = status);
+    await StockAnalysisStorage.saveReviewStatus(
+      ticker: widget.ticker,
+      section: section.title,
+      status: status.name,
+    );
+  }
+
+  _ReviewStatus _statusFor(_AnalysisSection section) {
+    return _reviewStatuses[section.title] ?? _ReviewStatus.notStarted;
+  }
+
+  _ReviewStatus _statusFromStorage(String? value) {
+    return _ReviewStatus.values.firstWhere(
+      (status) => status.name == value,
+      orElse: () => _ReviewStatus.notStarted,
+    );
+  }
+
+  Color _statusColor(_ReviewStatus status) {
+    return switch (status) {
+      _ReviewStatus.notStarted => Colors.blueGrey,
+      _ReviewStatus.inReview => Colors.orange,
+      _ReviewStatus.complete => Colors.green,
+    };
+  }
+
+  @override
   Widget build(BuildContext context) {
     final selectedSection = _sections[_selectedIndex];
 
@@ -100,6 +180,14 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
         _ResultsHeader(
           ticker: widget.ticker,
           layout: _layout,
+          completedCount: _reviewStatuses.values
+              .where((status) => status == _ReviewStatus.complete)
+              .length,
+          inReviewCount: _reviewStatuses.values
+              .where((status) => status == _ReviewStatus.inReview)
+              .length,
+          totalCount: _sections.length,
+          isLoadingStatuses: _isLoadingStatuses,
           onLayoutChanged: (layout) => setState(() => _layout = layout),
         ),
         const SizedBox(height: 12),
@@ -127,6 +215,12 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
         return CollapsibleSection(
           title: section.title,
           icon: section.icon,
+          status: _statusFor(section).label,
+          statusColor: _statusColor(_statusFor(section)),
+          statusSelector: _StatusDropdown(
+            status: _statusFor(section),
+            onChanged: (status) => _setReviewStatus(section, status),
+          ),
           content: content,
         );
       },
@@ -165,6 +259,9 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
                 child: _SectionSurface(
                   section: selectedSection,
                   ticker: widget.ticker,
+                  status: _statusFor(selectedSection),
+                  onStatusChanged: (status) =>
+                      _setReviewStatus(selectedSection, status),
                 ),
               ),
             ],
@@ -178,6 +275,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
               width: 280,
               child: _SectionNavigation(
                 sections: _sections,
+                statuses: _reviewStatuses,
                 selectedIndex: _selectedIndex,
                 onSelected: (index) => setState(() => _selectedIndex = index),
               ),
@@ -187,6 +285,9 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
               child: _SectionSurface(
                 section: selectedSection,
                 ticker: widget.ticker,
+                status: _statusFor(selectedSection),
+                onStatusChanged: (status) =>
+                    _setReviewStatus(selectedSection, status),
               ),
             ),
           ],
@@ -211,6 +312,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
               child: _CategoryGroup(
                 title: entry.key,
                 sections: entry.value,
+                statuses: _reviewStatuses,
                 selectedTitle: selectedSection.title,
                 onSelected: (section) {
                   setState(() => _selectedIndex = _sections.indexOf(section));
@@ -229,6 +331,9 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
                 child: _SectionSurface(
                   section: selectedSection,
                   ticker: widget.ticker,
+                  status: _statusFor(selectedSection),
+                  onStatusChanged: (status) =>
+                      _setReviewStatus(selectedSection, status),
                 ),
               ),
             ],
@@ -244,6 +349,9 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
               child: _SectionSurface(
                 section: selectedSection,
                 ticker: widget.ticker,
+                status: _statusFor(selectedSection),
+                onStatusChanged: (status) =>
+                    _setReviewStatus(selectedSection, status),
               ),
             ),
           ],
@@ -257,15 +365,25 @@ class _ResultsHeader extends StatelessWidget {
   const _ResultsHeader({
     required this.ticker,
     required this.layout,
+    required this.completedCount,
+    required this.inReviewCount,
+    required this.totalCount,
+    required this.isLoadingStatuses,
     required this.onLayoutChanged,
   });
 
   final String ticker;
   final _AppAnalysisLayout layout;
+  final int completedCount;
+  final int inReviewCount;
+  final int totalCount;
+  final bool isLoadingStatuses;
   final ValueChanged<_AppAnalysisLayout> onLayoutChanged;
 
   @override
   Widget build(BuildContext context) {
+    final progress = totalCount == 0 ? 0.0 : completedCount / totalCount;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(14),
@@ -306,6 +424,29 @@ class _ResultsHeader extends StatelessWidget {
               ),
             ],
           ),
+          SizedBox(
+            width: 280,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        isLoadingStatuses
+                            ? 'Loading progress'
+                            : '$completedCount / $totalCount sections complete',
+                        style: const TextStyle(fontWeight: FontWeight.w700),
+                      ),
+                    ),
+                    Text('$inReviewCount in review'),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                LinearProgressIndicator(value: progress),
+              ],
+            ),
+          ),
           SegmentedButton<_AppAnalysisLayout>(
             segments: const [
               ButtonSegment(
@@ -336,11 +477,13 @@ class _ResultsHeader extends StatelessWidget {
 class _SectionNavigation extends StatelessWidget {
   const _SectionNavigation({
     required this.sections,
+    required this.statuses,
     required this.selectedIndex,
     required this.onSelected,
   });
 
   final List<_AnalysisSection> sections;
+  final Map<String, _ReviewStatus> statuses;
   final int selectedIndex;
   final ValueChanged<int> onSelected;
 
@@ -358,6 +501,7 @@ class _SectionNavigation extends StatelessWidget {
         itemBuilder: (context, index) {
           final section = sections[index];
           final selected = index == selectedIndex;
+          final status = statuses[section.title] ?? _ReviewStatus.notStarted;
           return Padding(
             padding: const EdgeInsets.only(bottom: 4),
             child: ListTile(
@@ -368,7 +512,15 @@ class _SectionNavigation extends StatelessWidget {
               ),
               leading: Icon(section.icon),
               title: Text(section.title),
-              subtitle: Text(section.category),
+              subtitle: Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  Text(section.category),
+                  _StatusBadge(status: status),
+                ],
+              ),
               dense: true,
               onTap: () => onSelected(index),
             ),
@@ -380,10 +532,17 @@ class _SectionNavigation extends StatelessWidget {
 }
 
 class _SectionSurface extends StatelessWidget {
-  const _SectionSurface({required this.section, required this.ticker});
+  const _SectionSurface({
+    required this.section,
+    required this.ticker,
+    required this.status,
+    required this.onStatusChanged,
+  });
 
   final _AnalysisSection section;
   final String ticker;
+  final _ReviewStatus status;
+  final ValueChanged<_ReviewStatus> onStatusChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -420,6 +579,7 @@ class _SectionSurface extends StatelessWidget {
                     ],
                   ),
                 ),
+                _StatusDropdown(status: status, onChanged: onStatusChanged),
               ],
             ),
           ),
@@ -440,12 +600,14 @@ class _CategoryGroup extends StatelessWidget {
   const _CategoryGroup({
     required this.title,
     required this.sections,
+    required this.statuses,
     required this.selectedTitle,
     required this.onSelected,
   });
 
   final String title;
   final List<_AnalysisSection> sections;
+  final Map<String, _ReviewStatus> statuses;
   final String selectedTitle;
   final ValueChanged<_AnalysisSection> onSelected;
 
@@ -468,15 +630,75 @@ class _CategoryGroup extends StatelessWidget {
             runSpacing: 8,
             children: sections.map((section) {
               final selected = section.title == selectedTitle;
+              final status =
+                  statuses[section.title] ?? _ReviewStatus.notStarted;
               return FilterChip(
                 selected: selected,
                 avatar: Icon(section.icon, size: 18),
-                label: Text(section.title),
+                label: Text('${section.title} • ${status.label}'),
                 onSelected: (_) => onSelected(section),
               );
             }).toList(),
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _StatusDropdown extends StatelessWidget {
+  const _StatusDropdown({required this.status, required this.onChanged});
+
+  final _ReviewStatus status;
+  final ValueChanged<_ReviewStatus> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return DropdownButton<_ReviewStatus>(
+      value: status,
+      underline: const SizedBox.shrink(),
+      items: _ReviewStatus.values.map((status) {
+        return DropdownMenuItem(
+          value: status,
+          child: _StatusBadge(status: status),
+        );
+      }).toList(),
+      onChanged: (value) {
+        if (value != null) {
+          onChanged(value);
+        }
+      },
+    );
+  }
+}
+
+class _StatusBadge extends StatelessWidget {
+  const _StatusBadge({required this.status});
+
+  final _ReviewStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = switch (status) {
+      _ReviewStatus.notStarted => Colors.blueGrey,
+      _ReviewStatus.inReview => Colors.orange,
+      _ReviewStatus.complete => Colors.green,
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.shade50,
+        border: Border.all(color: color.shade100),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        status.label,
+        style: TextStyle(
+          color: color.shade800,
+          fontSize: 12,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }

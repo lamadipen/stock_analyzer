@@ -11,6 +11,7 @@ class StockAnalysisStorage {
   static const String saleTargetSection = 'saleTarget';
   static const String valuationMethodSection = 'valuationMethod';
   static const String _keyPrefix = 'stock_analysis';
+  static const String _reviewStatusesKey = 'reviewStatuses';
 
   static Future<Map<String, dynamic>?> loadSection({
     required String ticker,
@@ -50,6 +51,40 @@ class StockAnalysisStorage {
     tickerData['ticker'] = ticker.toUpperCase();
     tickerData['updatedAt'] = DateTime.now().toIso8601String();
     await prefs.setString(_keyFor(ticker), jsonEncode(tickerData));
+  }
+
+  static Future<Map<String, String>> loadReviewStatuses({
+    required String ticker,
+  }) async {
+    final tickerData = await _loadTickerData(ticker);
+    final statuses = tickerData[_reviewStatusesKey];
+    if (statuses is! Map<String, dynamic>) {
+      return <String, String>{};
+    }
+
+    return statuses.map((key, value) => MapEntry(key, '$value'));
+  }
+
+  static Future<void> saveReviewStatus({
+    required String ticker,
+    required String section,
+    required String status,
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final tickerData = await _loadTickerData(ticker);
+    final upperTicker = ticker.toUpperCase();
+    final statuses = Map<String, dynamic>.from(
+      tickerData[_reviewStatusesKey] is Map<String, dynamic>
+          ? tickerData[_reviewStatusesKey] as Map<String, dynamic>
+          : <String, dynamic>{},
+    );
+
+    statuses[section] = status;
+    tickerData['ticker'] = upperTicker;
+    tickerData['updatedAt'] = DateTime.now().toIso8601String();
+    tickerData[_reviewStatusesKey] = statuses;
+
+    await prefs.setString(_keyFor(upperTicker), jsonEncode(tickerData));
   }
 
   static Future<Map<String, dynamic>> _loadTickerData(String ticker) async {
