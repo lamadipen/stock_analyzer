@@ -107,3 +107,13 @@ Map<String, String> buildValuationMethodLinks(String ticker) {
     'GuruFocus Valuation': 'https://www.gurufocus.com/stock/$upper/dcf',
   };
 }
+
+Map<String, String> buildMarginOfSafetyLinks(String ticker) {
+  final String upper = ticker.toUpperCase();
+  final String lower = ticker.toLowerCase();
+  return {
+    'Yahoo Finance Chart': 'https://finance.yahoo.com/chart/$upper',
+    'MSN Money Chart':
+        'https://www.msn.com/en-us/money/chart?id=$lower&timeFrame=3M&projection=false&chartType=candlestick',
+  };
+}
