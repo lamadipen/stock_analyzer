@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -12,32 +15,218 @@ class MarginOfSafetyContent extends StatefulWidget {
 
 class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
   bool _isGreatEntry = true;
+  bool _isLoading = true;
+  bool _isSaving = false;
+  bool _isRestoring = false;
+  bool _hasSavedData = false;
+  DateTime? _lastSavedAt;
+  Timer? _saveDebounce;
 
-  late final List<_BuyPointRow> _buyPoints = [
-    _BuyPointRow(
-      dateController: TextEditingController(text: '03-04-2026'),
-      buyPointController: TextEditingController(text: 'Buy point 1'),
-      targetPriceController: TextEditingController(text: '200'),
-    ),
-    _BuyPointRow(
-      dateController: TextEditingController(text: '03-04-2026'),
-      buyPointController: TextEditingController(text: 'Buy point 2'),
-      targetPriceController: TextEditingController(text: '150'),
-    ),
-    _BuyPointRow(
-      dateController: TextEditingController(text: '03-04-2026'),
-      buyPointController: TextEditingController(text: 'Buy point 3'),
-      targetPriceController: TextEditingController(text: '100'),
-    ),
-  ];
+  final List<_BuyPointRow> _buyPoints = [];
+  final List<_ReferenceLinkRow> _referenceLinks = [];
 
-  late final List<_ReferenceLinkRow> _referenceLinks =
-      buildMarginOfSafetyLinks(widget.ticker).entries.map((entry) {
-        return _ReferenceLinkRow(
-          labelController: TextEditingController(text: entry.key),
-          urlController: TextEditingController(text: entry.value),
-        );
-      }).toList();
+  @override
+  void initState() {
+    super.initState();
+    _setDefaultRows();
+    _loadSavedData();
+  }
+
+  Future<void> _loadSavedData() async {
+    final data = await StockAnalysisStorage.loadSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.marginOfSafetySection,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (data == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    _isRestoring = true;
+    _disposeRows();
+    _buyPoints
+      ..clear()
+      ..addAll(_buyPointsFromJson(data['buyPoints']));
+    _referenceLinks
+      ..clear()
+      ..addAll(_referenceLinksFromJson(data['referenceLinks']));
+
+    setState(() {
+      _isGreatEntry = data['isGreatEntry'] == true;
+      _hasSavedData = true;
+      _isLoading = false;
+      _lastSavedAt = DateTime.tryParse('${data['savedAt'] ?? ''}');
+    });
+    _isRestoring = false;
+  }
+
+  void _setDefaultRows() {
+    _buyPoints
+      ..clear()
+      ..addAll([
+        _createBuyPointRow(
+          dateCreated: '03-04-2026',
+          buyPoint: 'Buy point 1',
+          targetPrice: '200',
+        ),
+        _createBuyPointRow(
+          dateCreated: '03-04-2026',
+          buyPoint: 'Buy point 2',
+          targetPrice: '150',
+        ),
+        _createBuyPointRow(
+          dateCreated: '03-04-2026',
+          buyPoint: 'Buy point 3',
+          targetPrice: '100',
+        ),
+      ]);
+
+    _referenceLinks
+      ..clear()
+      ..addAll(
+        buildMarginOfSafetyLinks(widget.ticker).entries.map((entry) {
+          return _createReferenceLinkRow(label: entry.key, url: entry.value);
+        }),
+      );
+  }
+
+  List<_BuyPointRow> _buyPointsFromJson(Object? value) {
+    if (value is! List) {
+      return [];
+    }
+
+    return value.whereType<Map<String, dynamic>>().map((item) {
+      return _createBuyPointRow(
+        dateCreated: '${item['dateCreated'] ?? ''}',
+        buyPoint: '${item['buyPoint'] ?? ''}',
+        targetPrice: '${item['targetPrice'] ?? ''}',
+      );
+    }).toList();
+  }
+
+  List<_ReferenceLinkRow> _referenceLinksFromJson(Object? value) {
+    if (value is! List) {
+      return [];
+    }
+
+    return value.whereType<Map<String, dynamic>>().map((item) {
+      return _createReferenceLinkRow(
+        label: '${item['label'] ?? ''}',
+        url: '${item['url'] ?? ''}',
+      );
+    }).toList();
+  }
+
+  _BuyPointRow _createBuyPointRow({
+    String dateCreated = '',
+    String buyPoint = '',
+    String targetPrice = '',
+  }) {
+    final row = _BuyPointRow(
+      dateController: TextEditingController(text: dateCreated),
+      buyPointController: TextEditingController(text: buyPoint),
+      targetPriceController: TextEditingController(text: targetPrice),
+    );
+    row.dateController.addListener(_scheduleSave);
+    row.buyPointController.addListener(_scheduleSave);
+    row.targetPriceController.addListener(_scheduleSave);
+    return row;
+  }
+
+  _ReferenceLinkRow _createReferenceLinkRow({
+    String label = '',
+    String url = '',
+  }) {
+    final row = _ReferenceLinkRow(
+      labelController: TextEditingController(text: label),
+      urlController: TextEditingController(text: url),
+    );
+    row.labelController.addListener(_scheduleSave);
+    row.urlController.addListener(_scheduleSave);
+    return row;
+  }
+
+  Map<String, dynamic> _toJson() {
+    final savedAt = DateTime.now();
+    return {
+      'isGreatEntry': _isGreatEntry,
+      'savedAt': savedAt.toIso8601String(),
+      'buyPoints': _buyPoints.map((row) {
+        return {
+          'dateCreated': row.dateController.text,
+          'buyPoint': row.buyPointController.text,
+          'targetPrice': row.targetPriceController.text,
+        };
+      }).toList(),
+      'referenceLinks': _referenceLinks.map((row) {
+        return {
+          'label': row.labelController.text,
+          'url': row.urlController.text,
+        };
+      }).toList(),
+    };
+  }
+
+  void _scheduleSave() {
+    if (_isRestoring || _isLoading) {
+      return;
+    }
+
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 500), _saveNow);
+  }
+
+  Future<void> _saveNow() async {
+    if (!mounted) {
+      return;
+    }
+
+    setState(() => _isSaving = true);
+    final data = _toJson();
+    await StockAnalysisStorage.saveSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.marginOfSafetySection,
+      data: data,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = false;
+      _hasSavedData = true;
+      _lastSavedAt = DateTime.tryParse('${data['savedAt']}');
+    });
+  }
+
+  Future<void> _resetSection() async {
+    _saveDebounce?.cancel();
+    _isRestoring = true;
+    _disposeRows();
+    _setDefaultRows();
+    await StockAnalysisStorage.clearSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.marginOfSafetySection,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isGreatEntry = true;
+      _hasSavedData = false;
+      _lastSavedAt = null;
+      _isSaving = false;
+    });
+    _isRestoring = false;
+  }
 
   Future<void> _launch(String url) async {
     final uri = Uri.tryParse(url.trim());
@@ -49,59 +238,78 @@ class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
   void _addBuyPoint() {
     setState(() {
       _buyPoints.add(
-        _BuyPointRow(
-          dateController: TextEditingController(),
-          buyPointController: TextEditingController(
-            text: 'Buy point ${_buyPoints.length + 1}',
-          ),
-          targetPriceController: TextEditingController(),
-        ),
+        _createBuyPointRow(buyPoint: 'Buy point ${_buyPoints.length + 1}'),
       );
     });
+    _scheduleSave();
   }
 
   void _deleteBuyPoint(int index) {
     final row = _buyPoints.removeAt(index);
     row.dispose();
     setState(() {});
+    _scheduleSave();
   }
 
   void _addReferenceLink() {
     setState(() {
-      _referenceLinks.add(
-        _ReferenceLinkRow(
-          labelController: TextEditingController(text: 'Chart Link'),
-          urlController: TextEditingController(),
-        ),
-      );
+      _referenceLinks.add(_createReferenceLinkRow(label: 'Chart Link'));
     });
+    _scheduleSave();
   }
 
   void _deleteReferenceLink(int index) {
     final row = _referenceLinks.removeAt(index);
     row.dispose();
     setState(() {});
+    _scheduleSave();
   }
 
-  @override
-  void dispose() {
+  void _disposeRows() {
     for (final row in _buyPoints) {
       row.dispose();
     }
     for (final row in _referenceLinks) {
       row.dispose();
     }
+  }
+
+  @override
+  void dispose() {
+    _saveDebounce?.cancel();
+    _disposeRows();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Is it a Great Point of Entry?',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Is it a Great Point of Entry?',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            _SaveStatusChip(
+              isSaving: _isSaving,
+              hasSavedData: _hasSavedData,
+              lastSavedAt: _lastSavedAt,
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: _resetSection,
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Reset'),
+            ),
+          ],
         ),
         const SizedBox(height: 12),
         DecoratedBox(
@@ -113,6 +321,7 @@ class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
             value: _isGreatEntry,
             onChanged: (value) {
               setState(() => _isGreatEntry = value ?? false);
+              _scheduleSave();
             },
             title: const Text(
               'Price is at Dip of an Uptrend, at the Support Level of a Consolidation or Reversing into a new uptrend',
@@ -349,6 +558,46 @@ class _TableTextField extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _SaveStatusChip extends StatelessWidget {
+  const _SaveStatusChip({
+    required this.isSaving,
+    required this.hasSavedData,
+    required this.lastSavedAt,
+  });
+
+  final bool isSaving;
+  final bool hasSavedData;
+  final DateTime? lastSavedAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final label = isSaving
+        ? 'Saving...'
+        : hasSavedData
+        ? 'Saved ${_formatTime(lastSavedAt)}'
+        : 'Not saved yet';
+
+    return Chip(
+      avatar: Icon(
+        isSaving ? Icons.sync : Icons.check_circle_outline,
+        size: 18,
+      ),
+      label: Text(label),
+      backgroundColor: hasSavedData ? Colors.green.shade50 : null,
+    );
+  }
+
+  String _formatTime(DateTime? value) {
+    if (value == null) {
+      return '';
+    }
+
+    final hour = value.hour.toString().padLeft(2, '0');
+    final minute = value.minute.toString().padLeft(2, '0');
+    return '$hour:$minute';
   }
 }
 
