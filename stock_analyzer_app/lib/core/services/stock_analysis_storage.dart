@@ -5,7 +5,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 class StockAnalysisStorage {
   const StockAnalysisStorage._();
 
+  static const String competitorStudySection = 'competitorStudy';
+  static const String economicMoatSection = 'economicMoat';
   static const String marginOfSafetySection = 'marginOfSafety';
+  static const String saleTargetSection = 'saleTarget';
+  static const String valuationMethodSection = 'valuationMethod';
   static const String _keyPrefix = 'stock_analysis';
 
   static Future<Map<String, dynamic>?> loadSection({

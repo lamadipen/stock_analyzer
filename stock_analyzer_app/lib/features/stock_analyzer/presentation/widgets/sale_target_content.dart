@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/domain/sale_target_calculator.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class SaleTarget {
@@ -55,29 +57,137 @@ class SaleTargetContent extends StatefulWidget {
 }
 
 class _SaleTargetContentState extends State<SaleTargetContent> {
-  late final List<SaleTarget> _targets = [
-    SaleTarget(
-      title: '1st Level Goal',
-      startDate: DateTime(2024, 4, 26),
-      principal: 8426,
-      growthRatePercent: 10,
-      years: 5,
-    ),
-    SaleTarget(
-      title: '2nd Level Goal',
-      startDate: DateTime(2024, 4, 26),
-      principal: 8426,
-      growthRatePercent: 10,
-      years: 7,
-    ),
-    SaleTarget(
-      title: '3rd Level Goal',
-      startDate: DateTime(2024, 4, 26),
-      principal: 8426,
-      growthRatePercent: 10,
-      years: 10,
-    ),
-  ];
+  bool _isLoading = true;
+  bool _isSaving = false;
+  bool _hasSavedData = false;
+  DateTime? _lastSavedAt;
+
+  late final List<SaleTarget> _targets = _defaultTargets();
+
+  List<SaleTarget> _defaultTargets() {
+    return [
+      SaleTarget(
+        title: '1st Level Goal',
+        startDate: DateTime(2024, 4, 26),
+        principal: 8426,
+        growthRatePercent: 10,
+        years: 5,
+      ),
+      SaleTarget(
+        title: '2nd Level Goal',
+        startDate: DateTime(2024, 4, 26),
+        principal: 8426,
+        growthRatePercent: 10,
+        years: 7,
+      ),
+      SaleTarget(
+        title: '3rd Level Goal',
+        startDate: DateTime(2024, 4, 26),
+        principal: 8426,
+        growthRatePercent: 10,
+        years: 10,
+      ),
+    ];
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedData();
+  }
+
+  Future<void> _loadSavedData() async {
+    final data = await StockAnalysisStorage.loadSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.saleTargetSection,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (data == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final targets = data['targets'];
+    if (targets is List) {
+      _targets
+        ..clear()
+        ..addAll(
+          targets.whereType<Map<String, dynamic>>().map((target) {
+            return SaleTarget(
+              title: '${target['title'] ?? ''}',
+              startDate:
+                  DateTime.tryParse('${target['startDate'] ?? ''}') ??
+                  DateTime.now(),
+              principal: double.tryParse('${target['principal'] ?? ''}') ?? 0,
+              growthRatePercent:
+                  double.tryParse('${target['growthRatePercent'] ?? ''}') ?? 0,
+              years: int.tryParse('${target['years'] ?? ''}') ?? 1,
+            );
+          }),
+        );
+    }
+
+    setState(() {
+      _isLoading = false;
+      _hasSavedData = true;
+      _lastSavedAt = DateTime.tryParse('${data['savedAt'] ?? ''}');
+    });
+  }
+
+  Future<void> _saveNow() async {
+    setState(() => _isSaving = true);
+    final savedAt = DateTime.now();
+    await StockAnalysisStorage.saveSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.saleTargetSection,
+      data: {
+        'savedAt': savedAt.toIso8601String(),
+        'targets': _targets.map((target) {
+          return {
+            'title': target.title,
+            'startDate': target.startDate.toIso8601String(),
+            'principal': target.principal,
+            'growthRatePercent': target.growthRatePercent,
+            'years': target.years,
+          };
+        }).toList(),
+      },
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = false;
+      _hasSavedData = true;
+      _lastSavedAt = savedAt;
+    });
+  }
+
+  Future<void> _resetSection() async {
+    await StockAnalysisStorage.clearSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.saleTargetSection,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _targets
+        ..clear()
+        ..addAll(_defaultTargets());
+      _hasSavedData = false;
+      _lastSavedAt = null;
+      _isSaving = false;
+    });
+  }
 
   Future<void> _launch(String url) async {
     final uri = Uri.parse(url);
@@ -96,19 +206,26 @@ class _SaleTargetContentState extends State<SaleTargetContent> {
         growthRatePercent: 10,
         years: 5,
       ),
-      onSave: (target) => setState(() => _targets.add(target)),
+      onSave: (target) {
+        setState(() => _targets.add(target));
+        _saveNow();
+      },
     );
   }
 
   void _editTarget(int index) {
     _showTargetDialog(
       _targets[index],
-      onSave: (target) => setState(() => _targets[index] = target),
+      onSave: (target) {
+        setState(() => _targets[index] = target);
+        _saveNow();
+      },
     );
   }
 
   void _deleteTarget(int index) {
     setState(() => _targets.removeAt(index));
+    _saveNow();
   }
 
   Future<void> _showTargetDialog(
@@ -342,6 +459,10 @@ class _SaleTargetContentState extends State<SaleTargetContent> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final profLinks = buildCompoundInterestLinks(widget.ticker);
     final theme = Theme.of(context);
 
@@ -367,6 +488,18 @@ class _SaleTargetContentState extends State<SaleTargetContent> {
         Row(
           children: [
             const Expanded(child: Text('Sale Target Calculated:')),
+            SectionSaveStatusChip(
+              isSaving: _isSaving,
+              hasSavedData: _hasSavedData,
+              lastSavedAt: _lastSavedAt,
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: _resetSection,
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Reset'),
+            ),
+            const SizedBox(width: 8),
             FilledButton.icon(
               onPressed: _addTarget,
               icon: const Icon(Icons.add),

@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ValuationMethodContent extends StatefulWidget {
@@ -11,6 +13,11 @@ class ValuationMethodContent extends StatefulWidget {
 }
 
 class _ValuationMethodContentState extends State<ValuationMethodContent> {
+  bool _isLoading = true;
+  bool _isSaving = false;
+  bool _hasSavedData = false;
+  DateTime? _lastSavedAt;
+
   final List<_ValuationChecklistItem> _items = const [
     _ValuationChecklistItem('1. Historic PE Comparison'),
     _ValuationChecklistItem(
@@ -33,6 +40,81 @@ class _ValuationMethodContentState extends State<ValuationMethodContent> {
 
   late final List<bool> _checked = List<bool>.filled(_items.length, false);
 
+  @override
+  void initState() {
+    super.initState();
+    _loadSavedData();
+  }
+
+  Future<void> _loadSavedData() async {
+    final data = await StockAnalysisStorage.loadSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.valuationMethodSection,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (data == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    final checked = data['checked'];
+    if (checked is List) {
+      for (var i = 0; i < checked.length && i < _checked.length; i++) {
+        _checked[i] = checked[i] == true;
+      }
+    }
+
+    setState(() {
+      _isLoading = false;
+      _hasSavedData = true;
+      _lastSavedAt = DateTime.tryParse('${data['savedAt'] ?? ''}');
+    });
+  }
+
+  Future<void> _saveNow() async {
+    setState(() => _isSaving = true);
+    final savedAt = DateTime.now();
+    await StockAnalysisStorage.saveSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.valuationMethodSection,
+      data: {'savedAt': savedAt.toIso8601String(), 'checked': _checked},
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = false;
+      _hasSavedData = true;
+      _lastSavedAt = savedAt;
+    });
+  }
+
+  Future<void> _resetSection() async {
+    await StockAnalysisStorage.clearSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.valuationMethodSection,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      for (var i = 0; i < _checked.length; i++) {
+        _checked[i] = false;
+      }
+      _hasSavedData = false;
+      _lastSavedAt = null;
+      _isSaving = false;
+    });
+  }
+
   Future<void> _launch(String url) async {
     final uri = Uri.parse(url);
     if (await canLaunchUrl(uri)) {
@@ -42,6 +124,10 @@ class _ValuationMethodContentState extends State<ValuationMethodContent> {
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
     final valuationLinks = buildValuationMethodLinks(widget.ticker);
     final historicPeLink = valuationLinks.entries.first;
     final referenceLinks = valuationLinks.entries.skip(1);
@@ -49,9 +135,26 @@ class _ValuationMethodContentState extends State<ValuationMethodContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'Is it a Great Price?',
-          style: TextStyle(fontWeight: FontWeight.w600),
+        Row(
+          children: [
+            const Expanded(
+              child: Text(
+                'Is it a Great Price?',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            SectionSaveStatusChip(
+              isSaving: _isSaving,
+              hasSavedData: _hasSavedData,
+              lastSavedAt: _lastSavedAt,
+            ),
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: _resetSection,
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Reset'),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         const Text('Price is below or near to the intrinsic value.'),
@@ -71,6 +174,7 @@ class _ValuationMethodContentState extends State<ValuationMethodContent> {
                   setState(() {
                     _checked[index] = value ?? false;
                   });
+                  _saveNow();
                 },
                 title: Text(item.title),
                 controlAffinity: ListTileControlAffinity.leading,
