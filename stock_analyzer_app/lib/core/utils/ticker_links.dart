@@ -87,3 +87,23 @@ Map<String, String> buildCompetitorStudyLinks(String ticker) {
     'CNBC Peers': 'https://www.cnbc.com/quotes/$upper?tab=peers',
   };
 }
+
+Map<String, String> buildValuationMethodLinks(String ticker) {
+  final String upper = ticker.toUpperCase();
+  final String lower = ticker.toLowerCase();
+  return {
+    'Macrotrends PE Ratio':
+        'https://www.macrotrends.net/stocks/charts/$upper/$lower/pe-ratio',
+    'Valueinvesting Intrinsic Value':
+        'https://valueinvesting.io/$upper/valuation/intrinsic-value',
+    'Alpha Spread Summary':
+        'https://www.alphaspread.com/security/nasdaq/$lower/summary',
+    'Alpha Spread Calculator':
+        'https://www.alphaspread.com/intrinsic-value-calculator',
+    'Macroaxis Valuation':
+        'https://www.macroaxis.com/invest/ratio/$upper/Current-Valuation',
+    'Simply Wall St Valuation':
+        'https://simplywall.st/stocks/us/media/nasdaq-$lower/alphabet/valuation',
+    'GuruFocus Valuation': 'https://www.gurufocus.com/stock/$upper/dcf',
+  };
+}
