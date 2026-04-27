@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class MarginOfSafetyContent extends StatefulWidget {
@@ -290,20 +291,20 @@ class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            const Expanded(
-              child: Text(
-                'Is it a Great Point of Entry?',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+            const Text(
+              'Is it a Great Point of Entry?',
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
             _SaveStatusChip(
               isSaving: _isSaving,
               hasSavedData: _hasSavedData,
               lastSavedAt: _lastSavedAt,
             ),
-            const SizedBox(width: 8),
             OutlinedButton.icon(
               onPressed: _resetSection,
               icon: const Icon(Icons.restart_alt),
@@ -332,27 +333,34 @@ class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
           ),
         ),
         const SizedBox(height: 16),
-        const _MarginNote(
-          text:
-              'Avoid buying at highs of uptrend, i.e. far from moving average.',
+        const AppNote(
+          tone: AppNoteTone.warning,
+          child: Text(
+            'Avoid buying at highs of uptrend, i.e. far from moving average.',
+          ),
         ),
         const SizedBox(height: 12),
-        const _MarginNote(
-          text:
-              'Always buy/add shares on the dip or wave down near to moving average.',
+        const AppNote(
+          child: Text(
+            'Always buy/add shares on the dip or wave down near to moving average.',
+          ),
         ),
         const SizedBox(height: 12),
-        const _MarginNote(
-          text: 'Confirmed Uptrend: 50MA above 150MA and/or price above 200MA.',
+        const AppNote(
+          tone: AppNoteTone.info,
+          child: Text(
+            'Confirmed Uptrend: 50MA above 150MA and/or price above 200MA.',
+          ),
         ),
         const SizedBox(height: 16),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            const Expanded(
-              child: Text(
-                'Possible Buy Points as per chart',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+            const Text(
+              'Possible Buy Points as per chart',
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
             FilledButton.icon(
               onPressed: _addBuyPoint,
@@ -362,71 +370,16 @@ class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
           ],
         ),
         const SizedBox(height: 8),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: WidgetStatePropertyAll(Colors.green.shade50),
-              columns: const [
-                DataColumn(label: Text('Date Created')),
-                DataColumn(label: Text('Buy Points')),
-                DataColumn(label: Text('Target Price')),
-                DataColumn(label: Text('Actions')),
-              ],
-              rows: _buyPoints.asMap().entries.map((entry) {
-                final index = entry.key;
-                final row = entry.value;
-                return DataRow(
-                  cells: [
-                    DataCell(
-                      _TableTextField(
-                        controller: row.dateController,
-                        hintText: 'MM-DD-YYYY',
-                        width: 140,
-                      ),
-                    ),
-                    DataCell(
-                      _TableTextField(
-                        controller: row.buyPointController,
-                        hintText: 'Buy point',
-                        width: 180,
-                      ),
-                    ),
-                    DataCell(
-                      _TableTextField(
-                        controller: row.targetPriceController,
-                        hintText: 'Target price',
-                        width: 120,
-                        keyboardType: const TextInputType.numberWithOptions(
-                          decimal: true,
-                        ),
-                      ),
-                    ),
-                    DataCell(
-                      IconButton(
-                        tooltip: 'Delete',
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => _deleteBuyPoint(index),
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
-        ),
+        _BuyPointsEditor(buyPoints: _buyPoints, onDelete: _deleteBuyPoint),
         const SizedBox(height: 16),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            const Expanded(
-              child: Text(
-                'References',
-                style: TextStyle(fontWeight: FontWeight.w600),
-              ),
+            const Text(
+              'References',
+              style: TextStyle(fontWeight: FontWeight.w600),
             ),
             FilledButton.icon(
               onPressed: _addReferenceLink,
@@ -436,62 +389,10 @@ class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
           ],
         ),
         const SizedBox(height: 8),
-        Column(
-          children: _referenceLinks.asMap().entries.map((entry) {
-            final index = entry.key;
-            final row = entry.value;
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 2,
-                        child: TextField(
-                          controller: row.labelController,
-                          decoration: const InputDecoration(
-                            labelText: 'Label',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        flex: 4,
-                        child: TextField(
-                          controller: row.urlController,
-                          decoration: const InputDecoration(
-                            labelText: 'URL',
-                            border: OutlineInputBorder(),
-                            isDense: true,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      ActionChip(
-                        label: const Text('Open'),
-                        onPressed: () => _launch(row.urlController.text),
-                        backgroundColor: Colors.blueGrey.shade50,
-                      ),
-                      IconButton(
-                        tooltip: 'Delete',
-                        icon: const Icon(Icons.delete_outline),
-                        onPressed: () => _deleteReferenceLink(index),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            );
-          }).toList(),
+        _ReferenceLinksEditor(
+          referenceLinks: _referenceLinks,
+          onOpen: _launch,
+          onDelete: _deleteReferenceLink,
         ),
       ],
     );
@@ -528,6 +429,259 @@ class _ReferenceLinkRow {
   void dispose() {
     labelController.dispose();
     urlController.dispose();
+  }
+}
+
+class _BuyPointsEditor extends StatelessWidget {
+  const _BuyPointsEditor({required this.buyPoints, required this.onDelete});
+
+  final List<_BuyPointRow> buyPoints;
+  final ValueChanged<int> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 620) {
+          return Column(
+            children: buyPoints.asMap().entries.map((entry) {
+              final index = entry.key;
+              final row = entry.value;
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _BuyPointCard(row: row, onDelete: () => onDelete(index)),
+              );
+            }).toList(),
+          );
+        }
+
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: WidgetStatePropertyAll(Colors.green.shade50),
+              columns: const [
+                DataColumn(label: Text('Date Created')),
+                DataColumn(label: Text('Buy Points')),
+                DataColumn(label: Text('Target Price')),
+                DataColumn(label: Text('Actions')),
+              ],
+              rows: buyPoints.asMap().entries.map((entry) {
+                final index = entry.key;
+                final row = entry.value;
+                return DataRow(
+                  cells: [
+                    DataCell(
+                      _TableTextField(
+                        controller: row.dateController,
+                        hintText: 'MM-DD-YYYY',
+                        width: 140,
+                      ),
+                    ),
+                    DataCell(
+                      _TableTextField(
+                        controller: row.buyPointController,
+                        hintText: 'Buy point',
+                        width: 180,
+                      ),
+                    ),
+                    DataCell(
+                      _TableTextField(
+                        controller: row.targetPriceController,
+                        hintText: 'Target price',
+                        width: 120,
+                        keyboardType: const TextInputType.numberWithOptions(
+                          decimal: true,
+                        ),
+                      ),
+                    ),
+                    DataCell(
+                      IconButton(
+                        tooltip: 'Delete',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => onDelete(index),
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _BuyPointCard extends StatelessWidget {
+  const _BuyPointCard({required this.row, required this.onDelete});
+
+  final _BuyPointRow row;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              const Expanded(
+                child: Text(
+                  'Buy Point',
+                  style: TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Delete',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: onDelete,
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          TextField(
+            controller: row.dateController,
+            decoration: const InputDecoration(
+              labelText: 'Date Created',
+              hintText: 'MM-DD-YYYY',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: row.buyPointController,
+            decoration: const InputDecoration(
+              labelText: 'Buy Point',
+              hintText: 'Buy point',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: row.targetPriceController,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: const InputDecoration(
+              labelText: 'Target Price',
+              hintText: 'Target price',
+              border: OutlineInputBorder(),
+              isDense: true,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ReferenceLinksEditor extends StatelessWidget {
+  const _ReferenceLinksEditor({
+    required this.referenceLinks,
+    required this.onOpen,
+    required this.onDelete,
+  });
+
+  final List<_ReferenceLinkRow> referenceLinks;
+  final ValueChanged<String> onOpen;
+  final ValueChanged<int> onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: referenceLinks.asMap().entries.map((entry) {
+        final index = entry.key;
+        final row = entry.value;
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(12),
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final isNarrow = constraints.maxWidth < 620;
+                  final fields = [
+                    TextField(
+                      controller: row.labelController,
+                      decoration: const InputDecoration(
+                        labelText: 'Label',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                    TextField(
+                      controller: row.urlController,
+                      decoration: const InputDecoration(
+                        labelText: 'URL',
+                        border: OutlineInputBorder(),
+                        isDense: true,
+                      ),
+                    ),
+                  ];
+
+                  final actions = Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      ActionChip(
+                        label: const Text('Open'),
+                        onPressed: () => onOpen(row.urlController.text),
+                        backgroundColor: Colors.blueGrey.shade50,
+                      ),
+                      IconButton(
+                        tooltip: 'Delete',
+                        icon: const Icon(Icons.delete_outline),
+                        onPressed: () => onDelete(index),
+                      ),
+                    ],
+                  );
+
+                  if (isNarrow) {
+                    return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        fields[0],
+                        const SizedBox(height: 10),
+                        fields[1],
+                        const SizedBox(height: 10),
+                        actions,
+                      ],
+                    );
+                  }
+
+                  return Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 2, child: fields[0]),
+                      const SizedBox(width: 12),
+                      Expanded(flex: 4, child: fields[1]),
+                      const SizedBox(width: 8),
+                      actions,
+                    ],
+                  );
+                },
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
   }
 }
 
@@ -598,24 +752,5 @@ class _SaveStatusChip extends StatelessWidget {
     final hour = value.hour.toString().padLeft(2, '0');
     final minute = value.minute.toString().padLeft(2, '0');
     return '$hour:$minute';
-  }
-}
-
-class _MarginNote extends StatelessWidget {
-  const _MarginNote({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
-    );
   }
 }

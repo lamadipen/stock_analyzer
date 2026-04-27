@@ -457,8 +457,6 @@ class _SaleTargetContentState extends State<SaleTargetContent> {
     }
 
     final profLinks = buildCompoundInterestLinks(widget.ticker);
-    final theme = Theme.of(context);
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -471,21 +469,22 @@ class _SaleTargetContentState extends State<SaleTargetContent> {
           ),
         ),
         const SizedBox(height: 16),
-        Row(
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
-            const Expanded(child: Text('Sale Target Calculated:')),
+            const Text('Sale Target Calculated:'),
             SectionSaveStatusChip(
               isSaving: _isSaving,
               hasSavedData: _hasSavedData,
               lastSavedAt: _lastSavedAt,
             ),
-            const SizedBox(width: 8),
             OutlinedButton.icon(
               onPressed: _resetSection,
               icon: const Icon(Icons.restart_alt),
               label: const Text('Reset'),
             ),
-            const SizedBox(width: 8),
             FilledButton.icon(
               onPressed: _addTarget,
               icon: const Icon(Icons.add),
@@ -494,67 +493,13 @@ class _SaleTargetContentState extends State<SaleTargetContent> {
           ],
         ),
         const SizedBox(height: 8),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: DataTable(
-              headingRowColor: WidgetStatePropertyAll(Colors.green.shade50),
-              columns: const [
-                DataColumn(label: Text('Title')),
-                DataColumn(label: Text('Start Date')),
-                DataColumn(label: Text('Principal')),
-                DataColumn(label: Text('Growth')),
-                DataColumn(label: Text('Years')),
-                DataColumn(label: Text('Target Price')),
-                DataColumn(label: Text('Maturity Date')),
-                DataColumn(label: Text('Actions')),
-              ],
-              rows: _targets.asMap().entries.map((entry) {
-                final index = entry.key;
-                final target = entry.value;
-                return DataRow(
-                  cells: [
-                    DataCell(Text(target.title)),
-                    DataCell(Text(_formatDate(target.startDate))),
-                    DataCell(Text(_formatCurrency(target.principal))),
-                    DataCell(Text(_formatPercent(target.growthRatePercent))),
-                    DataCell(Text('${target.years}')),
-                    DataCell(
-                      Text(
-                        _formatCurrency(target.targetPrice),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w700,
-                          color: Colors.green.shade800,
-                        ),
-                      ),
-                    ),
-                    DataCell(Text(_formatDate(target.maturityDate))),
-                    DataCell(
-                      Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            tooltip: 'Edit',
-                            icon: const Icon(Icons.edit),
-                            onPressed: () => _editTarget(index),
-                          ),
-                          IconButton(
-                            tooltip: 'Delete',
-                            icon: const Icon(Icons.delete_outline),
-                            onPressed: () => _deleteTarget(index),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              }).toList(),
-            ),
-          ),
+        _SaleTargetsList(
+          targets: _targets,
+          onEdit: _editTarget,
+          onDelete: _deleteTarget,
+          formatCurrency: _formatCurrency,
+          formatPercent: _formatPercent,
+          formatDate: _formatDate,
         ),
         const SizedBox(height: 16),
         const Text('Exit Strategy:'),
@@ -627,6 +572,231 @@ class _SaleTargetPreview extends StatelessWidget {
           const SizedBox(height: 8),
           Text('Target Price: ${formatCurrency(targetPrice)}'),
           Text('Maturity Date: ${formatDate(maturityDate)}'),
+        ],
+      ),
+    );
+  }
+}
+
+class _SaleTargetsList extends StatelessWidget {
+  const _SaleTargetsList({
+    required this.targets,
+    required this.onEdit,
+    required this.onDelete,
+    required this.formatCurrency,
+    required this.formatPercent,
+    required this.formatDate,
+  });
+
+  final List<SaleTarget> targets;
+  final ValueChanged<int> onEdit;
+  final ValueChanged<int> onDelete;
+  final String Function(double value) formatCurrency;
+  final String Function(double value) formatPercent;
+  final String Function(DateTime value) formatDate;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 720) {
+          return Column(
+            children: targets.asMap().entries.map((entry) {
+              return Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _SaleTargetCard(
+                  target: entry.value,
+                  onEdit: () => onEdit(entry.key),
+                  onDelete: () => onDelete(entry.key),
+                  formatCurrency: formatCurrency,
+                  formatPercent: formatPercent,
+                  formatDate: formatDate,
+                ),
+              );
+            }).toList(),
+          );
+        }
+
+        final theme = Theme.of(context);
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            border: Border.all(color: Colors.grey.shade300),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: DataTable(
+              headingRowColor: WidgetStatePropertyAll(Colors.green.shade50),
+              columns: const [
+                DataColumn(label: Text('Title')),
+                DataColumn(label: Text('Start Date')),
+                DataColumn(label: Text('Principal')),
+                DataColumn(label: Text('Growth')),
+                DataColumn(label: Text('Years')),
+                DataColumn(label: Text('Target Price')),
+                DataColumn(label: Text('Maturity Date')),
+                DataColumn(label: Text('Actions')),
+              ],
+              rows: targets.asMap().entries.map((entry) {
+                final index = entry.key;
+                final target = entry.value;
+                return DataRow(
+                  cells: [
+                    DataCell(Text(target.title)),
+                    DataCell(Text(formatDate(target.startDate))),
+                    DataCell(Text(formatCurrency(target.principal))),
+                    DataCell(Text(formatPercent(target.growthRatePercent))),
+                    DataCell(Text('${target.years}')),
+                    DataCell(
+                      Text(
+                        formatCurrency(target.targetPrice),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                          color: Colors.green.shade800,
+                        ),
+                      ),
+                    ),
+                    DataCell(Text(formatDate(target.maturityDate))),
+                    DataCell(
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          IconButton(
+                            tooltip: 'Edit',
+                            icon: const Icon(Icons.edit),
+                            onPressed: () => onEdit(index),
+                          ),
+                          IconButton(
+                            tooltip: 'Delete',
+                            icon: const Icon(Icons.delete_outline),
+                            onPressed: () => onDelete(index),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _SaleTargetCard extends StatelessWidget {
+  const _SaleTargetCard({
+    required this.target,
+    required this.onEdit,
+    required this.onDelete,
+    required this.formatCurrency,
+    required this.formatPercent,
+    required this.formatDate,
+  });
+
+  final SaleTarget target;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final String Function(double value) formatCurrency;
+  final String Function(double value) formatPercent;
+  final String Function(DateTime value) formatDate;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        border: Border.all(color: Colors.grey.shade300),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  target.title,
+                  style: const TextStyle(fontWeight: FontWeight.w800),
+                ),
+              ),
+              IconButton(
+                tooltip: 'Edit',
+                icon: const Icon(Icons.edit),
+                onPressed: onEdit,
+              ),
+              IconButton(
+                tooltip: 'Delete',
+                icon: const Icon(Icons.delete_outline),
+                onPressed: onDelete,
+              ),
+            ],
+          ),
+          const Divider(height: 16),
+          _TargetDetailRow(
+            label: 'Start Date',
+            value: formatDate(target.startDate),
+          ),
+          _TargetDetailRow(
+            label: 'Principal',
+            value: formatCurrency(target.principal),
+          ),
+          _TargetDetailRow(
+            label: 'Growth',
+            value: formatPercent(target.growthRatePercent),
+          ),
+          _TargetDetailRow(label: 'Years', value: '${target.years}'),
+          _TargetDetailRow(
+            label: 'Target Price',
+            value: formatCurrency(target.targetPrice),
+            isEmphasized: true,
+          ),
+          _TargetDetailRow(
+            label: 'Maturity Date',
+            value: formatDate(target.maturityDate),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TargetDetailRow extends StatelessWidget {
+  const _TargetDetailRow({
+    required this.label,
+    required this.value,
+    this.isEmphasized = false,
+  });
+
+  final String label;
+  final String value;
+  final bool isEmphasized;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = isEmphasized ? Colors.green.shade800 : null;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 3),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 110,
+            child: Text(
+              label,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                color: color,
+                fontWeight: isEmphasized ? FontWeight.w800 : null,
+              ),
+            ),
+          ),
         ],
       ),
     );
