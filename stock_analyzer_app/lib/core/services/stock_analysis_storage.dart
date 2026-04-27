@@ -2,6 +2,32 @@ import 'dart:convert';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+class SavedTickerSummary {
+  const SavedTickerSummary({
+    required this.ticker,
+    required this.updatedAt,
+    required this.finalAction,
+    required this.riskLevel,
+    required this.completedSections,
+    required this.totalSections,
+  });
+
+  final String ticker;
+  final DateTime? updatedAt;
+  final String finalAction;
+  final String riskLevel;
+  final int completedSections;
+  final int totalSections;
+
+  double get completionProgress {
+    if (totalSections == 0) {
+      return 0;
+    }
+
+    return completedSections / totalSections;
+  }
+}
+
 class StockAnalysisStorage {
   const StockAnalysisStorage._();
 
@@ -13,6 +39,7 @@ class StockAnalysisStorage {
   static const String valuationMethodSection = 'valuationMethod';
   static const String _keyPrefix = 'stock_analysis';
   static const String _reviewStatusesKey = 'reviewStatuses';
+  static const int analysisSectionCount = 15;
 
   static Future<Map<String, dynamic>?> loadSection({
     required String ticker,
@@ -58,6 +85,59 @@ class StockAnalysisStorage {
     required String ticker,
   }) async {
     return _loadTickerData(ticker);
+  }
+
+  static Future<List<SavedTickerSummary>> loadSavedTickerSummaries() async {
+    final prefs = await SharedPreferences.getInstance();
+    final summaries = <SavedTickerSummary>[];
+
+    for (final key in prefs.getKeys()) {
+      if (!key.startsWith('${_keyPrefix}_')) {
+        continue;
+      }
+
+      final rawData = prefs.getString(key);
+      if (rawData == null) {
+        continue;
+      }
+
+      final decoded = jsonDecode(rawData);
+      if (decoded is! Map<String, dynamic>) {
+        continue;
+      }
+
+      final ticker =
+          '${decoded['ticker'] ?? key.substring(_keyPrefix.length + 1)}'
+              .toUpperCase();
+      final decisionSummary = decoded[decisionSummarySection];
+      final reviewStatuses = decoded[_reviewStatusesKey];
+      final completedSections = reviewStatuses is Map<String, dynamic>
+          ? reviewStatuses.values.where((status) => status == 'complete').length
+          : 0;
+
+      summaries.add(
+        SavedTickerSummary(
+          ticker: ticker,
+          updatedAt: DateTime.tryParse('${decoded['updatedAt'] ?? ''}'),
+          finalAction: decisionSummary is Map<String, dynamic>
+              ? '${decisionSummary['finalAction'] ?? 'Watchlist'}'
+              : 'Watchlist',
+          riskLevel: decisionSummary is Map<String, dynamic>
+              ? '${decisionSummary['riskLevel'] ?? 'Medium'}'
+              : 'Medium',
+          completedSections: completedSections,
+          totalSections: analysisSectionCount,
+        ),
+      );
+    }
+
+    summaries.sort((a, b) {
+      final aDate = a.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final bDate = b.updatedAt ?? DateTime.fromMillisecondsSinceEpoch(0);
+      return bDate.compareTo(aDate);
+    });
+
+    return summaries;
   }
 
   static Future<Map<String, String>> loadReviewStatuses({
