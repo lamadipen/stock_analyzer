@@ -31,6 +31,11 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
 
   final List<_AnalysisSection> _sections = const [
     _AnalysisSection(
+      title: 'Decision Summary',
+      category: 'Summary',
+      icon: Icons.fact_check,
+    ),
+    _AnalysisSection(
       title: 'Business Overview',
       category: 'Company',
       icon: Icons.business_center,

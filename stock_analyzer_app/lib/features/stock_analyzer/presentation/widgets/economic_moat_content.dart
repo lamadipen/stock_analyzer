@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
 class EconomicMoatContent extends StatefulWidget {
   final String ticker;
@@ -173,43 +174,33 @@ class _EconomicMoatContentState extends State<EconomicMoatContent> {
           ],
         ),
         const SizedBox(height: 12),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            children: _items.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              return CheckboxListTile(
-                value: item.isChecked,
-                onChanged: (value) {
-                  setState(() {
-                    _items[index] = item.copyWith(isChecked: value ?? false);
-                  });
-                  _saveNow();
-                },
-                title: Text(item.title),
-                controlAffinity: ListTileControlAffinity.leading,
-                dense: true,
-                contentPadding: EdgeInsets.only(
-                  left: item.isChild ? 32 : 8,
-                  right: 12,
-                ),
-              );
-            }).toList(),
-          ),
+        ChecklistCard(
+          items: _items.map((item) {
+            return ChecklistCardItem(
+              title: item.title,
+              isChecked: item.isChecked,
+              isChild: item.isChild,
+            );
+          }).toList(),
+          onChanged: (index, isChecked) {
+            setState(() {
+              _items[index] = _items[index].copyWith(isChecked: isChecked);
+            });
+            _saveNow();
+          },
         ),
         const SizedBox(height: 16),
-        const _MoatNote(
-          text:
-              'Based on peer comparison, select if the company has some kind of moat.',
+        const AppNote(
+          child: Text(
+            'Based on peer comparison, select if the company has some kind of moat.',
+          ),
         ),
         const SizedBox(height: 12),
-        const _MoatNote(
-          text:
-              'Technological innovations, patents, and pharmaceutical patents are often not sustainable.',
+        const AppNote(
+          tone: AppNoteTone.warning,
+          child: Text(
+            'Technological innovations, patents, and pharmaceutical patents are often not sustainable.',
+          ),
         ),
       ],
     );
@@ -232,25 +223,6 @@ class _MoatChecklistItem {
       title: title,
       isChecked: isChecked ?? this.isChecked,
       isChild: isChild,
-    );
-  }
-}
-
-class _MoatNote extends StatelessWidget {
-  const _MoatNote({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: Border.all(color: Colors.grey),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)),
     );
   }
 }

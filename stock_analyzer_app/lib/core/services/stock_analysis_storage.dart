@@ -6,6 +6,7 @@ class StockAnalysisStorage {
   const StockAnalysisStorage._();
 
   static const String competitorStudySection = 'competitorStudy';
+  static const String decisionSummarySection = 'decisionSummary';
   static const String economicMoatSection = 'economicMoat';
   static const String marginOfSafetySection = 'marginOfSafety';
   static const String saleTargetSection = 'saleTarget';

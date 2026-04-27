@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
-import 'package:url_launcher/url_launcher.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
 class CompetitorStudyContent extends StatefulWidget {
   final String ticker;
@@ -194,13 +194,6 @@ class _CompetitorStudyContentState extends State<CompetitorStudyContent> {
     _isRestoring = false;
   }
 
-  Future<void> _launch(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, webOnlyWindowName: '_blank');
-    }
-  }
-
   @override
   void dispose() {
     _saveDebounce?.cancel();
@@ -297,51 +290,21 @@ class _CompetitorStudyContentState extends State<CompetitorStudyContent> {
           ),
         ),
         const SizedBox(height: 16),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Text(
+        const AppNote(
+          child: Text(
             'Note: Compare the performance with its industry competitor.',
-            style: TextStyle(fontWeight: FontWeight.bold),
           ),
         ),
         const SizedBox(height: 16),
-        const Text(
-          'Peer Comparison Chart',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: competitorLinks.entries.take(2).map((entry) {
-            return ActionChip(
-              label: Text(entry.key),
-              onPressed: () => _launch(entry.value),
-              backgroundColor: Colors.blueGrey.shade50,
-            );
-          }).toList(),
+        ReferenceLinks(
+          title: 'Peer Comparison Chart',
+          links: Map.fromEntries(competitorLinks.entries.take(2)),
         ),
         const SizedBox(height: 16),
-        const Text(
-          'S&P 500 Comparison Chart',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: competitorLinks.entries.skip(2).map((entry) {
-            return ActionChip(
-              label: Text(entry.key),
-              onPressed: () => _launch(entry.value),
-              backgroundColor: Colors.green.shade50,
-            );
-          }).toList(),
+        ReferenceLinks(
+          title: 'S&P 500 Comparison Chart',
+          links: Map.fromEntries(competitorLinks.entries.skip(2)),
+          color: Colors.green,
         ),
       ],
     );
