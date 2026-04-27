@@ -22,8 +22,10 @@ class _AiAnalysisSummaryContentState extends State<AiAnalysisSummaryContent> {
   final TextEditingController _modelController = TextEditingController(
     text: 'gemma3',
   );
+  final TextEditingController _apiKeyController = TextEditingController();
   final TextEditingController _summaryController = TextEditingController();
 
+  AiAnalysisProvider _provider = AiAnalysisProvider.ollama;
   bool _isLoading = true;
   bool _isGenerating = false;
   bool _isSaving = false;
@@ -48,6 +50,10 @@ class _AiAnalysisSummaryContentState extends State<AiAnalysisSummaryContent> {
     }
 
     if (data != null) {
+      _provider = AiAnalysisProvider.values.firstWhere(
+        (provider) => provider.name == '${data['provider'] ?? ''}',
+        orElse: () => AiAnalysisProvider.ollama,
+      );
       _baseUrlController.text = '${data['baseUrl'] ?? _baseUrlController.text}'
           .trim();
       _modelController.text = '${data['model'] ?? _modelController.text}'
@@ -65,10 +71,12 @@ class _AiAnalysisSummaryContentState extends State<AiAnalysisSummaryContent> {
   Future<void> _generateSummary() async {
     final model = _modelController.text.trim();
     final baseUrl = _baseUrlController.text.trim();
+    final apiKey = _apiKeyController.text.trim();
 
-    if (model.isEmpty || baseUrl.isEmpty) {
+    if (model.isEmpty ||
+        (_provider == AiAnalysisProvider.ollama && baseUrl.isEmpty)) {
       setState(() {
-        _errorMessage = 'Enter an Ollama URL and model name.';
+        _errorMessage = 'Enter a provider URL and model name.';
       });
       return;
     }
@@ -87,8 +95,10 @@ class _AiAnalysisSummaryContentState extends State<AiAnalysisSummaryContent> {
         data: analysisData,
       );
       final summary = await const OllamaAiService().generateAnalysisSummary(
+        provider: _provider,
         baseUrl: baseUrl,
         model: model,
+        apiKey: apiKey,
         analysisMarkdown: markdown,
       );
 
@@ -119,6 +129,7 @@ class _AiAnalysisSummaryContentState extends State<AiAnalysisSummaryContent> {
       section: StockAnalysisStorage.aiAnalysisSummarySection,
       data: {
         'savedAt': savedAt.toIso8601String(),
+        'provider': _provider.name,
         'baseUrl': _baseUrlController.text.trim(),
         'model': _modelController.text.trim(),
         'summary': _summaryController.text.trim(),
@@ -158,6 +169,7 @@ class _AiAnalysisSummaryContentState extends State<AiAnalysisSummaryContent> {
   void dispose() {
     _baseUrlController.dispose();
     _modelController.dispose();
+    _apiKeyController.dispose();
     _summaryController.dispose();
     super.dispose();
   }
@@ -188,13 +200,39 @@ class _AiAnalysisSummaryContentState extends State<AiAnalysisSummaryContent> {
         ),
         const SizedBox(height: 12),
         const AppNote(
-          title: 'Local open-source AI',
+          title: 'AI provider',
           icon: Icons.memory,
           child: Text(
-            'This uses Ollama on your machine. Start Ollama, install a local model such as gemma3, then generate a summary from your saved checklist notes.',
+            'Use local Ollama, Gemini, or Groq to summarize your saved checklist notes. API keys are used only for the request and are not saved by this app.',
           ),
         ),
         const SizedBox(height: 16),
+        DropdownButtonFormField<AiAnalysisProvider>(
+          initialValue: _provider,
+          decoration: const InputDecoration(
+            labelText: 'AI Provider',
+            border: OutlineInputBorder(),
+            prefixIcon: Icon(Icons.hub_outlined),
+          ),
+          items: AiAnalysisProvider.values.map((provider) {
+            return DropdownMenuItem(
+              value: provider,
+              child: Text(provider.label),
+            );
+          }).toList(),
+          onChanged: (provider) {
+            if (provider == null) {
+              return;
+            }
+
+            setState(() {
+              _provider = provider;
+              _modelController.text = _defaultModelFor(provider);
+              _errorMessage = null;
+            });
+          },
+        ),
+        const SizedBox(height: 12),
         LayoutBuilder(
           builder: (context, constraints) {
             final isNarrow = constraints.maxWidth < 680;
@@ -211,23 +249,43 @@ class _AiAnalysisSummaryContentState extends State<AiAnalysisSummaryContent> {
               controller: _modelController,
               decoration: const InputDecoration(
                 labelText: 'Model',
-                hintText: 'gemma3',
+                hintText: 'gemma3, gemini-2.5-flash, llama-3.3-70b-versatile',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.smart_toy_outlined),
               ),
             );
+            final apiKeyField = TextField(
+              controller: _apiKeyController,
+              obscureText: true,
+              decoration: InputDecoration(
+                labelText: '${_provider.label} API Key',
+                hintText: 'Paste your API key',
+                border: const OutlineInputBorder(),
+                prefixIcon: const Icon(Icons.key),
+              ),
+            );
+
+            final fields = [
+              if (_provider == AiAnalysisProvider.ollama) urlField,
+              modelField,
+              if (_provider != AiAnalysisProvider.ollama) apiKeyField,
+            ];
 
             if (isNarrow) {
               return Column(
-                children: [urlField, const SizedBox(height: 12), modelField],
+                children: fields
+                    .expand((field) => [field, const SizedBox(height: 12)])
+                    .take(fields.length * 2 - 1)
+                    .toList(),
               );
             }
 
             return Row(
               children: [
-                Expanded(flex: 3, child: urlField),
-                const SizedBox(width: 12),
-                Expanded(flex: 2, child: modelField),
+                for (var i = 0; i < fields.length; i++) ...[
+                  Expanded(flex: i == 0 ? 3 : 2, child: fields[i]),
+                  if (i != fields.length - 1) const SizedBox(width: 12),
+                ],
               ],
             );
           },
@@ -285,5 +343,13 @@ class _AiAnalysisSummaryContentState extends State<AiAnalysisSummaryContent> {
         ),
       ],
     );
+  }
+
+  String _defaultModelFor(AiAnalysisProvider provider) {
+    return switch (provider) {
+      AiAnalysisProvider.ollama => 'gemma3',
+      AiAnalysisProvider.gemini => 'gemini-2.5-flash',
+      AiAnalysisProvider.groq => 'llama-3.3-70b-versatile',
+    };
   }
 }
