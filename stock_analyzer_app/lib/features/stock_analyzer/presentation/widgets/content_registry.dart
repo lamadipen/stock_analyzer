@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/ai_analysis_summary_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/business_overview_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/competitor_study_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/decision_summary_content.dart';
@@ -19,6 +20,7 @@ typedef ContentWidgetBuilder = Widget Function(String ticker);
 
 final Map<String, ContentWidgetBuilder> contentRegistry = {
   'Decision Summary': (ticker) => DecisionSummaryContent(ticker: ticker),
+  'AI Analysis Summary': (ticker) => AiAnalysisSummaryContent(ticker: ticker),
   'Business Overview': (ticker) => BusinessOverviewContent(ticker: ticker),
   'Financial Highlights': (ticker) =>
       FinancialHighlightsContent(ticker: ticker),

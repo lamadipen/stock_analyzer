@@ -37,3 +37,12 @@ Step 3:
 ```
 firebase deploy
 ```
+
+---
+AI Analysis using free local open-source AI via [Ollama](https://docs.ollama.com/api/generate).
+Run the command 
+```
+ollama pull gemma3
+ollama serve
+```
+

@@ -31,6 +31,7 @@ class SavedTickerSummary {
 class StockAnalysisStorage {
   const StockAnalysisStorage._();
 
+  static const String aiAnalysisSummarySection = 'aiAnalysisSummary';
   static const String competitorStudySection = 'competitorStudy';
   static const String decisionSummarySection = 'decisionSummary';
   static const String economicMoatSection = 'economicMoat';
@@ -39,7 +40,7 @@ class StockAnalysisStorage {
   static const String valuationMethodSection = 'valuationMethod';
   static const String _keyPrefix = 'stock_analysis';
   static const String _reviewStatusesKey = 'reviewStatuses';
-  static const int analysisSectionCount = 15;
+  static const int analysisSectionCount = 16;
 
   static Future<Map<String, dynamic>?> loadSection({
     required String ticker,

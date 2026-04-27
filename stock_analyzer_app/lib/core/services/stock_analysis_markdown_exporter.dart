@@ -27,6 +27,10 @@ class StockAnalysisMarkdownExporter {
       buffer,
       data[StockAnalysisStorage.decisionSummarySection],
     );
+    _writeAiAnalysisSummary(
+      buffer,
+      data[StockAnalysisStorage.aiAnalysisSummarySection],
+    );
     _writeReviewStatuses(buffer, data['reviewStatuses']);
     _writeCompetitorStudy(
       buffer,
@@ -75,6 +79,24 @@ class StockAnalysisMarkdownExporter {
     } else {
       buffer.writeln();
     }
+  }
+
+  static void _writeAiAnalysisSummary(StringBuffer buffer, Object? value) {
+    final data = _asMap(value);
+    if (data == null) {
+      return;
+    }
+
+    final summary = '${data['summary'] ?? ''}'.trim();
+    if (summary.isEmpty) {
+      return;
+    }
+
+    buffer
+      ..writeln('## AI Analysis Summary')
+      ..writeln()
+      ..writeln(summary)
+      ..writeln();
   }
 
   static void _writeReviewStatuses(StringBuffer buffer, Object? value) {

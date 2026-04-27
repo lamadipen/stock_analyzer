@@ -39,6 +39,11 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
       icon: Icons.fact_check,
     ),
     _AnalysisSection(
+      title: 'AI Analysis Summary',
+      category: 'Summary',
+      icon: Icons.auto_awesome,
+    ),
+    _AnalysisSection(
       title: 'Business Overview',
       category: 'Company',
       icon: Icons.business_center,
