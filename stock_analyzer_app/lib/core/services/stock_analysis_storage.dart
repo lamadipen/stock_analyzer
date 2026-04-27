@@ -54,6 +54,12 @@ class StockAnalysisStorage {
     await prefs.setString(_keyFor(ticker), jsonEncode(tickerData));
   }
 
+  static Future<Map<String, dynamic>> loadTickerAnalysis({
+    required String ticker,
+  }) async {
+    return _loadTickerData(ticker);
+  }
+
   static Future<Map<String, String>> loadReviewStatuses({
     required String ticker,
   }) async {

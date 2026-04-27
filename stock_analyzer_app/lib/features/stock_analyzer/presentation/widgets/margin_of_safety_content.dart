@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -740,7 +741,7 @@ class _SaveStatusChip extends StatelessWidget {
         size: 18,
       ),
       label: Text(label),
-      backgroundColor: hasSavedData ? Colors.green.shade50 : null,
+      backgroundColor: hasSavedData ? AnalysisColors.favorable.shade50 : null,
     );
   }
 

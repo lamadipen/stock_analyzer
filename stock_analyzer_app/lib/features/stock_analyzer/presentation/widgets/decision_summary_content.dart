@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
@@ -275,8 +276,8 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
   AppNoteTone get _noteTone {
     return switch (_finalAction) {
       'Buy Zone' => AppNoteTone.success,
-      'Avoid' => AppNoteTone.warning,
-      _ => AppNoteTone.info,
+      'Avoid' => AppNoteTone.risk,
+      _ => AppNoteTone.warning,
     };
   }
 
@@ -285,14 +286,27 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
     required List<String> options,
     required ValueChanged<String> onChanged,
   }) {
+    final color = AnalysisColors.forDecision(value);
     return DropdownButtonFormField<String>(
       initialValue: value,
       decoration: const InputDecoration(
         border: OutlineInputBorder(),
         isDense: true,
       ),
+      style: TextStyle(color: color.shade900, fontWeight: FontWeight.w700),
+      dropdownColor: color.shade50,
       items: options.map((option) {
-        return DropdownMenuItem(value: option, child: Text(option));
+        final optionColor = AnalysisColors.forDecision(option);
+        return DropdownMenuItem(
+          value: option,
+          child: Text(
+            option,
+            style: TextStyle(
+              color: optionColor.shade900,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        );
       }).toList(),
       onChanged: (value) {
         if (value != null) {

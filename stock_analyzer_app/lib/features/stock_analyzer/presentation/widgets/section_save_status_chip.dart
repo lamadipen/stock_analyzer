@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
 
 class SectionSaveStatusChip extends StatelessWidget {
   const SectionSaveStatusChip({
@@ -26,7 +27,7 @@ class SectionSaveStatusChip extends StatelessWidget {
         size: 18,
       ),
       label: Text(label),
-      backgroundColor: hasSavedData ? Colors.green.shade50 : null,
+      backgroundColor: hasSavedData ? AnalysisColors.favorable.shade50 : null,
     );
   }
 

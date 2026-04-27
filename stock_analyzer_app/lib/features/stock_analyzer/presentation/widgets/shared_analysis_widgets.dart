@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
 import 'package:url_launcher/url_launcher.dart';
 
-enum AppNoteTone { neutral, info, warning, success }
+enum AppNoteTone { neutral, info, warning, success, risk }
 
 class AppNote extends StatelessWidget {
   const AppNote({
@@ -20,10 +21,11 @@ class AppNote extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (tone) {
-      AppNoteTone.neutral => Colors.blueGrey,
+      AppNoteTone.neutral => AnalysisColors.reference,
       AppNoteTone.info => Colors.blue,
-      AppNoteTone.warning => Colors.orange,
-      AppNoteTone.success => Colors.green,
+      AppNoteTone.warning => AnalysisColors.caution,
+      AppNoteTone.success => AnalysisColors.favorable,
+      AppNoteTone.risk => AnalysisColors.risk,
     };
 
     return Container(
@@ -125,7 +127,7 @@ class ReferenceLinks extends StatelessWidget {
     super.key,
     required this.title,
     required this.links,
-    this.color = Colors.blueGrey,
+    this.color = AnalysisColors.reference,
   });
 
   final String title;

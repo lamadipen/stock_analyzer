@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:stock_analyzer_app/core/services/stock_analysis_markdown_exporter.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/collapsible_section.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/content_registry.dart';
 
@@ -169,10 +172,70 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
 
   Color _statusColor(_ReviewStatus status) {
     return switch (status) {
-      _ReviewStatus.notStarted => Colors.blueGrey,
-      _ReviewStatus.inReview => Colors.orange,
-      _ReviewStatus.complete => Colors.green,
+      _ReviewStatus.notStarted => AnalysisColors.reference,
+      _ReviewStatus.inReview => AnalysisColors.caution,
+      _ReviewStatus.complete => AnalysisColors.favorable,
     };
+  }
+
+  Future<void> _showExportDialog() async {
+    final analysisData = await StockAnalysisStorage.loadTickerAnalysis(
+      ticker: widget.ticker,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    final markdown = StockAnalysisMarkdownExporter.buildMarkdown(
+      ticker: widget.ticker,
+      data: analysisData,
+    );
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Export Markdown Report'),
+          content: SizedBox(
+            width: 720,
+            height: 520,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.blueGrey.shade100),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(12),
+                child: SelectableText(
+                  markdown,
+                  style: const TextStyle(fontFamily: 'monospace'),
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: markdown));
+                if (!dialogContext.mounted) {
+                  return;
+                }
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Markdown report copied')),
+                );
+              },
+              icon: const Icon(Icons.copy),
+              label: const Text('Copy Markdown'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override
@@ -194,6 +257,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
           totalCount: _sections.length,
           isLoadingStatuses: _isLoadingStatuses,
           onLayoutChanged: (layout) => setState(() => _layout = layout),
+          onExport: _showExportDialog,
         ),
         const SizedBox(height: 12),
         Expanded(
@@ -375,6 +439,7 @@ class _ResultsHeader extends StatelessWidget {
     required this.totalCount,
     required this.isLoadingStatuses,
     required this.onLayoutChanged,
+    required this.onExport,
   });
 
   final String ticker;
@@ -384,6 +449,7 @@ class _ResultsHeader extends StatelessWidget {
   final int totalCount;
   final bool isLoadingStatuses;
   final ValueChanged<_AppAnalysisLayout> onLayoutChanged;
+  final VoidCallback onExport;
 
   @override
   Widget build(BuildContext context) {
@@ -472,6 +538,11 @@ class _ResultsHeader extends StatelessWidget {
             ],
             selected: {layout},
             onSelectionChanged: (selection) => onLayoutChanged(selection.first),
+          ),
+          FilledButton.icon(
+            onPressed: onExport,
+            icon: const Icon(Icons.ios_share),
+            label: const Text('Export'),
           ),
         ],
       ),
@@ -685,9 +756,9 @@ class _StatusBadge extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = switch (status) {
-      _ReviewStatus.notStarted => Colors.blueGrey,
-      _ReviewStatus.inReview => Colors.orange,
-      _ReviewStatus.complete => Colors.green,
+      _ReviewStatus.notStarted => AnalysisColors.reference,
+      _ReviewStatus.inReview => AnalysisColors.caution,
+      _ReviewStatus.complete => AnalysisColors.favorable,
     };
 
     return Container(
