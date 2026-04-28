@@ -312,20 +312,17 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
   Widget _buildMobileLayout(_AnalysisSection selectedSection) {
     return Column(
       children: [
-        _MobileResultsHeader(
+        _MobileControlHeader(
           ticker: widget.ticker,
           completedCount: _completedCount,
           inReviewCount: _inReviewCount,
           totalCount: _sections.length,
           isLoadingStatuses: _isLoadingStatuses,
-          onExport: _showExportDialog,
-        ),
-        const SizedBox(height: 8),
-        _MobileSectionSelector(
           sections: _sections,
           selectedIndex: _selectedIndex,
           status: _statusFor(selectedSection),
           onSelected: (index) => setState(() => _selectedIndex = index),
+          onExport: _showExportDialog,
         ),
         const SizedBox(height: 8),
         Expanded(
@@ -629,13 +626,17 @@ class _ResultsHeader extends StatelessWidget {
   }
 }
 
-class _MobileResultsHeader extends StatelessWidget {
-  const _MobileResultsHeader({
+class _MobileControlHeader extends StatelessWidget {
+  const _MobileControlHeader({
     required this.ticker,
     required this.completedCount,
     required this.inReviewCount,
     required this.totalCount,
     required this.isLoadingStatuses,
+    required this.sections,
+    required this.selectedIndex,
+    required this.status,
+    required this.onSelected,
     required this.onExport,
   });
 
@@ -644,6 +645,10 @@ class _MobileResultsHeader extends StatelessWidget {
   final int inReviewCount;
   final int totalCount;
   final bool isLoadingStatuses;
+  final List<_AnalysisSection> sections;
+  final int selectedIndex;
+  final _ReviewStatus status;
+  final ValueChanged<int> onSelected;
   final VoidCallback onExport;
 
   @override
@@ -652,7 +657,7 @@ class _MobileResultsHeader extends StatelessWidget {
 
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: Colors.white,
         border: Border.all(color: Colors.blueGrey.shade100),
@@ -664,11 +669,11 @@ class _MobileResultsHeader extends StatelessWidget {
           Row(
             children: [
               CircleAvatar(
-                radius: 18,
+                radius: 15,
                 backgroundColor: Colors.blueGrey.shade50,
                 child: Text(ticker.isEmpty ? '?' : ticker[0]),
               ),
-              const SizedBox(width: 10),
+              const SizedBox(width: 8),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -676,7 +681,7 @@ class _MobileResultsHeader extends StatelessWidget {
                     Text(
                       ticker,
                       style: const TextStyle(
-                        fontSize: 18,
+                        fontSize: 16,
                         fontWeight: FontWeight.w800,
                       ),
                     ),
@@ -694,67 +699,49 @@ class _MobileResultsHeader extends StatelessWidget {
                 tooltip: 'Export',
                 onPressed: onExport,
                 icon: const Icon(Icons.ios_share),
+                iconSize: 20,
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 8),
           LinearProgressIndicator(value: progress),
-        ],
-      ),
-    );
-  }
-}
-
-class _MobileSectionSelector extends StatelessWidget {
-  const _MobileSectionSelector({
-    required this.sections,
-    required this.selectedIndex,
-    required this.status,
-    required this.onSelected,
-  });
-
-  final List<_AnalysisSection> sections;
-  final int selectedIndex;
-  final _ReviewStatus status;
-  final ValueChanged<int> onSelected;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        border: Border.all(color: Colors.blueGrey.shade100),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: DropdownButtonFormField<int>(
-              initialValue: selectedIndex,
-              decoration: const InputDecoration(
-                labelText: 'Section',
-                prefixIcon: Icon(Icons.view_list),
-                isDense: true,
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(
+                child: DropdownButtonFormField<int>(
+                  initialValue: selectedIndex,
+                  decoration: const InputDecoration(
+                    labelText: 'Section',
+                    prefixIcon: Icon(Icons.view_list),
+                    isDense: true,
+                    contentPadding: EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                  ),
+                  items: sections.asMap().entries.map((entry) {
+                    final index = entry.key;
+                    final section = entry.value;
+                    return DropdownMenuItem(
+                      value: index,
+                      child: Text(
+                        section.title,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      onSelected(value);
+                    }
+                  },
+                ),
               ),
-              items: sections.asMap().entries.map((entry) {
-                final index = entry.key;
-                final section = entry.value;
-                return DropdownMenuItem(
-                  value: index,
-                  child: Text(section.title, overflow: TextOverflow.ellipsis),
-                );
-              }).toList(),
-              onChanged: (value) {
-                if (value != null) {
-                  onSelected(value);
-                }
-              },
-            ),
+              const SizedBox(width: 8),
+              _StatusBadge(status: status),
+            ],
           ),
-          const SizedBox(width: 8),
-          _StatusBadge(status: status),
         ],
       ),
     );

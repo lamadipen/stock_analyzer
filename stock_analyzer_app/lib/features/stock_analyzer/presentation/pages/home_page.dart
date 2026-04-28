@@ -56,6 +56,50 @@ class _HomePageState extends State<HomePage> {
     });
   }
 
+  Future<void> _showTickerSearchDialog() async {
+    final controller = TextEditingController(text: _activeTicker);
+    final ticker = await showDialog<String>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Change Ticker'),
+          content: TextField(
+            controller: controller,
+            autofocus: true,
+            textCapitalization: TextCapitalization.characters,
+            decoration: const InputDecoration(
+              labelText: 'Stock ticker',
+              prefixIcon: Icon(Icons.search),
+            ),
+            onSubmitted: (value) {
+              Navigator.pop(dialogContext, value.trim().toUpperCase());
+            },
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.pop(
+                  dialogContext,
+                  controller.text.trim().toUpperCase(),
+                );
+              },
+              child: const Text('Analyze'),
+            ),
+          ],
+        );
+      },
+    );
+    controller.dispose();
+
+    if (ticker != null && ticker.isNotEmpty) {
+      _openTicker(ticker);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -64,13 +108,18 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Stock Analyzer'),
         actions: [
-          if (_showResults)
+          if (_showResults) ...[
+            IconButton(
+              tooltip: 'Change ticker',
+              icon: const Icon(Icons.search),
+              onPressed: _showTickerSearchDialog,
+            ),
             IconButton(
               tooltip: 'Dashboard',
               icon: const Icon(Icons.dashboard_outlined),
               onPressed: _showDashboard,
-            )
-          else
+            ),
+          ] else
             IconButton(
               tooltip: 'Refresh dashboard',
               icon: const Icon(Icons.refresh),
@@ -90,49 +139,38 @@ class _HomePageState extends State<HomePage> {
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
           child: Column(
             children: [
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  border: Border.all(color: Colors.blueGrey.shade100),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    final isNarrow = constraints.maxWidth < 680;
-                    final searchField = TextField(
-                      controller: _tickerController,
-                      textCapitalization: TextCapitalization.characters,
-                      onSubmitted: (_) => _searchStock(),
-                      decoration: const InputDecoration(
-                        labelText: 'Stock ticker',
-                        hintText: 'AAPL, MSFT, GOOGL',
-                        prefixIcon: Icon(Icons.search),
-                      ),
-                    );
-                    final searchButton = FilledButton.icon(
-                      onPressed: _searchStock,
-                      icon: const Icon(Icons.analytics),
-                      label: const Text('Analyze'),
-                    );
-                    final compactSearchButton = IconButton.filled(
-                      tooltip: 'Analyze',
-                      onPressed: _searchStock,
-                      icon: const Icon(Icons.analytics),
-                    );
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final isNarrow = constraints.maxWidth < 680;
+                  if (_showResults && isNarrow) {
+                    return const SizedBox.shrink();
+                  }
 
-                    if (_showResults && isNarrow) {
-                      return Row(
-                        children: [
-                          Expanded(child: searchField),
-                          const SizedBox(width: 8),
-                          compactSearchButton,
-                        ],
-                      );
-                    }
+                  final searchField = TextField(
+                    controller: _tickerController,
+                    textCapitalization: TextCapitalization.characters,
+                    onSubmitted: (_) => _searchStock(),
+                    decoration: const InputDecoration(
+                      labelText: 'Stock ticker',
+                      hintText: 'AAPL, MSFT, GOOGL',
+                      prefixIcon: Icon(Icons.search),
+                    ),
+                  );
+                  final searchButton = FilledButton.icon(
+                    onPressed: _searchStock,
+                    icon: const Icon(Icons.analytics),
+                    label: const Text('Analyze'),
+                  );
 
-                    return Column(
+                  return Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      border: Border.all(color: Colors.blueGrey.shade100),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
@@ -162,11 +200,11 @@ class _HomePageState extends State<HomePage> {
                             ],
                           ),
                       ],
-                    );
-                  },
-                ),
+                    ),
+                  );
+                },
               ),
-              const SizedBox(height: 16),
+              if (!_showResults) const SizedBox(height: 16),
               Expanded(
                 child: _showResults
                     ? AnalysisResultsView(ticker: _activeTicker)
