@@ -139,6 +139,34 @@ void main() {
       );
     });
 
+    test('includes Groq abort hint for browser-aborted requests', () async {
+      final service = OllamaAiService(
+        client: MockClient((request) async {
+          throw http.ClientException(
+            'Request aborted by `abortTrigger`',
+            request.url,
+          );
+        }),
+      );
+
+      expect(
+        () => service.generateAnalysisSummary(
+          provider: AiAnalysisProvider.groq,
+          baseUrl: '',
+          model: 'llama-3.3-70b-versatile',
+          apiKey: 'groq-key',
+          analysisMarkdown: '# AAPL',
+        ),
+        throwsA(
+          isA<OllamaAiException>().having(
+            (error) => error.message,
+            'message',
+            allOf(contains('abortTrigger'), contains('Flutter Web')),
+          ),
+        ),
+      );
+    });
+
     test('throws a readable exception for non-success responses', () async {
       final service = OllamaAiService(
         client: MockClient((request) async {

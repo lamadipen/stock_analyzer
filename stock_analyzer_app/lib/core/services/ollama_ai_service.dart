@@ -28,7 +28,7 @@ class OllamaAiService {
     final ownsClient = _client == null;
 
     try {
-      return switch (provider) {
+      return await switch (provider) {
         AiAnalysisProvider.ollama => _generateWithOllama(
           client: client,
           baseUrl: baseUrl,
@@ -51,9 +51,7 @@ class OllamaAiService {
     } on OllamaAiException {
       rethrow;
     } catch (error) {
-      throw OllamaAiException(
-        'Could not connect to ${provider.label}. Check the provider settings, API key, and model name.',
-      );
+      throw OllamaAiException(_connectionErrorMessage(provider, error));
     } finally {
       if (ownsClient) {
         client.close();
@@ -67,18 +65,16 @@ class OllamaAiService {
     required String model,
     required String analysisMarkdown,
   }) async {
-    final response = await client
-        .post(
-          _ollamaGenerateUri(baseUrl),
-          headers: const {'Content-Type': 'application/json'},
-          body: jsonEncode({
-            'model': model.trim(),
-            'stream': false,
-            'options': {'temperature': 0.2},
-            'prompt': _buildPrompt(analysisMarkdown),
-          }),
-        )
-        .timeout(const Duration(seconds: 90));
+    final response = await client.post(
+      _ollamaGenerateUri(baseUrl),
+      headers: const {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'model': model.trim(),
+        'stream': false,
+        'options': {'temperature': 0.2},
+        'prompt': _buildPrompt(analysisMarkdown),
+      }),
+    );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw OllamaAiException(
@@ -107,27 +103,25 @@ class OllamaAiService {
       throw const OllamaAiException('Enter your Gemini API key.');
     }
 
-    final response = await client
-        .post(
-          Uri.parse(
-            'https://generativelanguage.googleapis.com/v1beta/models/${Uri.encodeComponent(model.trim())}:generateContent',
-          ),
-          headers: {
-            'Content-Type': 'application/json',
-            'x-goog-api-key': apiKey.trim(),
-          },
-          body: jsonEncode({
-            'contents': [
-              {
-                'parts': [
-                  {'text': _buildPrompt(analysisMarkdown)},
-                ],
-              },
+    final response = await client.post(
+      Uri.parse(
+        'https://generativelanguage.googleapis.com/v1beta/models/${Uri.encodeComponent(model.trim())}:generateContent',
+      ),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-goog-api-key': apiKey.trim(),
+      },
+      body: jsonEncode({
+        'contents': [
+          {
+            'parts': [
+              {'text': _buildPrompt(analysisMarkdown)},
             ],
-            'generationConfig': {'temperature': 0.2},
-          }),
-        )
-        .timeout(const Duration(seconds: 90));
+          },
+        ],
+        'generationConfig': {'temperature': 0.2},
+      }),
+    );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw OllamaAiException(
@@ -169,28 +163,26 @@ class OllamaAiService {
       throw const OllamaAiException('Enter your Groq API key.');
     }
 
-    final response = await client
-        .post(
-          Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': 'Bearer ${apiKey.trim()}',
+    final response = await client.post(
+      Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ${apiKey.trim()}',
+      },
+      body: jsonEncode({
+        'model': model.trim(),
+        'temperature': 0.2,
+        'max_completion_tokens': 1200,
+        'messages': [
+          {
+            'role': 'system',
+            'content':
+                'You summarize a user-provided investment checklist without inventing missing facts or giving personalized financial advice.',
           },
-          body: jsonEncode({
-            'model': model.trim(),
-            'temperature': 0.2,
-            'max_completion_tokens': 1200,
-            'messages': [
-              {
-                'role': 'system',
-                'content':
-                    'You summarize a user-provided investment checklist without inventing missing facts or giving personalized financial advice.',
-              },
-              {'role': 'user', 'content': _buildPrompt(analysisMarkdown)},
-            ],
-          }),
-        )
-        .timeout(const Duration(seconds: 90));
+          {'role': 'user', 'content': _buildPrompt(analysisMarkdown)},
+        ],
+      }),
+    );
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw OllamaAiException(
@@ -233,6 +225,17 @@ class OllamaAiService {
     }
 
     return '${value ?? ''}'.trim();
+  }
+
+  String _connectionErrorMessage(AiAnalysisProvider provider, Object error) {
+    final detail = '$error';
+    final webAbortHint =
+        provider == AiAnalysisProvider.groq &&
+            detail.toLowerCase().contains('aborttrigger')
+        ? ' In Flutter Web this can happen when the browser aborts the direct Groq request. Try again, verify the key/model, or run the app on desktop/mobile or through a small backend proxy if the browser keeps aborting it.'
+        : '';
+
+    return 'Could not connect to ${provider.label}. $detail$webAbortHint';
   }
 
   String _responseErrorDetail(String body) {
