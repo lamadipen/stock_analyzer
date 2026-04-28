@@ -90,6 +90,55 @@ void main() {
       expect(authorization, 'Bearer groq-key');
     });
 
+    test('extracts Groq list-shaped content', () async {
+      final service = OllamaAiService(
+        client: MockClient((request) async {
+          return http.Response(
+            '{"choices":[{"message":{"content":[{"type":"text","text":"Groq list summary"}]}}]}',
+            200,
+          );
+        }),
+      );
+
+      final summary = await service.generateAnalysisSummary(
+        provider: AiAnalysisProvider.groq,
+        baseUrl: '',
+        model: 'llama-3.3-70b-versatile',
+        apiKey: 'groq-key',
+        analysisMarkdown: '# AAPL',
+      );
+
+      expect(summary, 'Groq list summary');
+    });
+
+    test('includes provider error details for Groq failures', () async {
+      final service = OllamaAiService(
+        client: MockClient((request) async {
+          return http.Response(
+            '{"error":{"message":"The model does not exist"}}',
+            400,
+          );
+        }),
+      );
+
+      expect(
+        () => service.generateAnalysisSummary(
+          provider: AiAnalysisProvider.groq,
+          baseUrl: '',
+          model: 'bad-model',
+          apiKey: 'groq-key',
+          analysisMarkdown: '# AAPL',
+        ),
+        throwsA(
+          isA<OllamaAiException>().having(
+            (error) => error.message,
+            'message',
+            contains('The model does not exist'),
+          ),
+        ),
+      );
+    });
+
     test('throws a readable exception for non-success responses', () async {
       final service = OllamaAiService(
         client: MockClient((request) async {

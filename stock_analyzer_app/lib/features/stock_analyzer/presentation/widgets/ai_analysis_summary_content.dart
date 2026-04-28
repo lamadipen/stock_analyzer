@@ -319,6 +319,24 @@ class _AiAnalysisSummaryContentState extends State<AiAnalysisSummaryContent> {
             ),
           ],
         ),
+        if (_isGenerating) ...[
+          const SizedBox(height: 12),
+          AppNote(
+            title: 'Generating AI summary',
+            icon: Icons.hourglass_top,
+            tone: AppNoteTone.info,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LinearProgressIndicator(),
+                SizedBox(height: 10),
+                Text(
+                  'Waiting for ${_provider.label}. This can take a few seconds for cloud APIs and longer for local models.',
+                ),
+              ],
+            ),
+          ),
+        ],
         if (_errorMessage != null) ...[
           const SizedBox(height: 12),
           AppNote(

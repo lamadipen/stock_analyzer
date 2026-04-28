@@ -82,7 +82,7 @@ class OllamaAiService {
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw OllamaAiException(
-        'Ollama returned HTTP ${response.statusCode}. Check that the model is available locally.',
+        'Ollama returned HTTP ${response.statusCode}. ${_responseErrorDetail(response.body)}Check that the model is available locally.',
       );
     }
 
@@ -131,7 +131,7 @@ class OllamaAiService {
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw OllamaAiException(
-        'Gemini returned HTTP ${response.statusCode}. Check your API key and model name.',
+        'Gemini returned HTTP ${response.statusCode}. ${_responseErrorDetail(response.body)}Check your API key and model name.',
       );
     }
 
@@ -179,6 +179,7 @@ class OllamaAiService {
           body: jsonEncode({
             'model': model.trim(),
             'temperature': 0.2,
+            'max_completion_tokens': 1200,
             'messages': [
               {
                 'role': 'system',
@@ -193,7 +194,7 @@ class OllamaAiService {
 
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw OllamaAiException(
-        'Groq returned HTTP ${response.statusCode}. Check your API key and model name.',
+        'Groq returned HTTP ${response.statusCode}. ${_responseErrorDetail(response.body)}Check your API key and model name.',
       );
     }
 
@@ -204,7 +205,7 @@ class OllamaAiService {
           ? choices.first['message']
           : null;
       if (message is Map<String, dynamic>) {
-        final text = '${message['content'] ?? ''}'.trim();
+        final text = _extractText(message['content']);
         if (text.isNotEmpty) {
           return text;
         }
@@ -212,6 +213,56 @@ class OllamaAiService {
     }
 
     throw const OllamaAiException('Groq returned an empty response.');
+  }
+
+  String _extractText(Object? value) {
+    if (value is String) {
+      return value.trim();
+    }
+
+    if (value is List) {
+      return value
+          .map((item) {
+            if (item is Map<String, dynamic>) {
+              return '${item['text'] ?? item['content'] ?? ''}';
+            }
+            return '$item';
+          })
+          .join()
+          .trim();
+    }
+
+    return '${value ?? ''}'.trim();
+  }
+
+  String _responseErrorDetail(String body) {
+    if (body.trim().isEmpty) {
+      return '';
+    }
+
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic>) {
+        final error = decoded['error'];
+        if (error is Map<String, dynamic>) {
+          final message = '${error['message'] ?? ''}'.trim();
+          if (message.isNotEmpty) {
+            return '$message ';
+          }
+        }
+        final message = '${decoded['message'] ?? ''}'.trim();
+        if (message.isNotEmpty) {
+          return '$message ';
+        }
+      }
+    } catch (_) {
+      final text = body.trim();
+      if (text.isNotEmpty) {
+        return '${text.length > 220 ? text.substring(0, 220) : text} ';
+      }
+    }
+
+    return '';
   }
 
   Uri _ollamaGenerateUri(String baseUrl) {
