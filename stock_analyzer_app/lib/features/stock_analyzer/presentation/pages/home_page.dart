@@ -116,6 +116,21 @@ class _HomePageState extends State<HomePage> {
                       icon: const Icon(Icons.analytics),
                       label: const Text('Analyze'),
                     );
+                    final compactSearchButton = IconButton.filled(
+                      tooltip: 'Analyze',
+                      onPressed: _searchStock,
+                      icon: const Icon(Icons.analytics),
+                    );
+
+                    if (_showResults && isNarrow) {
+                      return Row(
+                        children: [
+                          Expanded(child: searchField),
+                          const SizedBox(width: 8),
+                          compactSearchButton,
+                        ],
+                      );
+                    }
 
                     return Column(
                       crossAxisAlignment: CrossAxisAlignment.start,

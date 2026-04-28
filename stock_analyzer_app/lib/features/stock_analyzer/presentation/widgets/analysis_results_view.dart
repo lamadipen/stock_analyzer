@@ -247,32 +247,106 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
   Widget build(BuildContext context) {
     final selectedSection = _sections[_selectedIndex];
 
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isMobile = constraints.maxWidth < 720;
+        if (isMobile) {
+          return _buildMobileLayout(selectedSection);
+        }
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _ResultsHeader(
+              ticker: widget.ticker,
+              layout: _layout,
+              completedCount: _completedCount,
+              inReviewCount: _inReviewCount,
+              totalCount: _sections.length,
+              isLoadingStatuses: _isLoadingStatuses,
+              onLayoutChanged: (layout) => setState(() => _layout = layout),
+              onExport: _showExportDialog,
+            ),
+            const SizedBox(height: 12),
+            Expanded(
+              child: switch (_layout) {
+                _AppAnalysisLayout.classic => _buildClassicLayout(),
+                _AppAnalysisLayout.workspace => _buildWorkspaceLayout(
+                  selectedSection,
+                ),
+                _AppAnalysisLayout.focus => _buildFocusLayout(selectedSection),
+              },
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  int get _completedCount {
+    return _reviewStatuses.values
+        .where((status) => status == _ReviewStatus.complete)
+        .length;
+  }
+
+  int get _inReviewCount {
+    return _reviewStatuses.values
+        .where((status) => status == _ReviewStatus.inReview)
+        .length;
+  }
+
+  void _goToPreviousSection() {
+    if (_selectedIndex == 0) {
+      return;
+    }
+    setState(() => _selectedIndex--);
+  }
+
+  void _goToNextSection() {
+    if (_selectedIndex >= _sections.length - 1) {
+      return;
+    }
+    setState(() => _selectedIndex++);
+  }
+
+  Widget _buildMobileLayout(_AnalysisSection selectedSection) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _ResultsHeader(
+        _MobileResultsHeader(
           ticker: widget.ticker,
-          layout: _layout,
-          completedCount: _reviewStatuses.values
-              .where((status) => status == _ReviewStatus.complete)
-              .length,
-          inReviewCount: _reviewStatuses.values
-              .where((status) => status == _ReviewStatus.inReview)
-              .length,
+          completedCount: _completedCount,
+          inReviewCount: _inReviewCount,
           totalCount: _sections.length,
           isLoadingStatuses: _isLoadingStatuses,
-          onLayoutChanged: (layout) => setState(() => _layout = layout),
           onExport: _showExportDialog,
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 8),
+        _MobileSectionSelector(
+          sections: _sections,
+          selectedIndex: _selectedIndex,
+          status: _statusFor(selectedSection),
+          onSelected: (index) => setState(() => _selectedIndex = index),
+        ),
+        const SizedBox(height: 8),
         Expanded(
-          child: switch (_layout) {
-            _AppAnalysisLayout.classic => _buildClassicLayout(),
-            _AppAnalysisLayout.workspace => _buildWorkspaceLayout(
-              selectedSection,
-            ),
-            _AppAnalysisLayout.focus => _buildFocusLayout(selectedSection),
-          },
+          child: _SectionSurface(
+            section: selectedSection,
+            ticker: widget.ticker,
+            status: _statusFor(selectedSection),
+            showStatusControl: false,
+            onStatusChanged: (status) =>
+                _setReviewStatus(selectedSection, status),
+          ),
+        ),
+        const SizedBox(height: 8),
+        _MobileActionBar(
+          canGoPrevious: _selectedIndex > 0,
+          canGoNext: _selectedIndex < _sections.length - 1,
+          status: _statusFor(selectedSection),
+          onPrevious: _goToPreviousSection,
+          onNext: _goToNextSection,
+          onStatusChanged: (status) =>
+              _setReviewStatus(selectedSection, status),
         ),
       ],
     );
@@ -555,6 +629,215 @@ class _ResultsHeader extends StatelessWidget {
   }
 }
 
+class _MobileResultsHeader extends StatelessWidget {
+  const _MobileResultsHeader({
+    required this.ticker,
+    required this.completedCount,
+    required this.inReviewCount,
+    required this.totalCount,
+    required this.isLoadingStatuses,
+    required this.onExport,
+  });
+
+  final String ticker;
+  final int completedCount;
+  final int inReviewCount;
+  final int totalCount;
+  final bool isLoadingStatuses;
+  final VoidCallback onExport;
+
+  @override
+  Widget build(BuildContext context) {
+    final progress = totalCount == 0 ? 0.0 : completedCount / totalCount;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.blueGrey.shade100),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 18,
+                backgroundColor: Colors.blueGrey.shade50,
+                child: Text(ticker.isEmpty ? '?' : ticker[0]),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      ticker,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    Text(
+                      isLoadingStatuses
+                          ? 'Loading progress'
+                          : '$completedCount/$totalCount complete • $inReviewCount reviewing',
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(color: Colors.blueGrey.shade700),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton.filledTonal(
+                tooltip: 'Export',
+                onPressed: onExport,
+                icon: const Icon(Icons.ios_share),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          LinearProgressIndicator(value: progress),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileSectionSelector extends StatelessWidget {
+  const _MobileSectionSelector({
+    required this.sections,
+    required this.selectedIndex,
+    required this.status,
+    required this.onSelected,
+  });
+
+  final List<_AnalysisSection> sections;
+  final int selectedIndex;
+  final _ReviewStatus status;
+  final ValueChanged<int> onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        border: Border.all(color: Colors.blueGrey.shade100),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Expanded(
+            child: DropdownButtonFormField<int>(
+              initialValue: selectedIndex,
+              decoration: const InputDecoration(
+                labelText: 'Section',
+                prefixIcon: Icon(Icons.view_list),
+                isDense: true,
+              ),
+              items: sections.asMap().entries.map((entry) {
+                final index = entry.key;
+                final section = entry.value;
+                return DropdownMenuItem(
+                  value: index,
+                  child: Text(section.title, overflow: TextOverflow.ellipsis),
+                );
+              }).toList(),
+              onChanged: (value) {
+                if (value != null) {
+                  onSelected(value);
+                }
+              },
+            ),
+          ),
+          const SizedBox(width: 8),
+          _StatusBadge(status: status),
+        ],
+      ),
+    );
+  }
+}
+
+class _MobileActionBar extends StatelessWidget {
+  const _MobileActionBar({
+    required this.canGoPrevious,
+    required this.canGoNext,
+    required this.status,
+    required this.onPrevious,
+    required this.onNext,
+    required this.onStatusChanged,
+  });
+
+  final bool canGoPrevious;
+  final bool canGoNext;
+  final _ReviewStatus status;
+  final VoidCallback onPrevious;
+  final VoidCallback onNext;
+  final ValueChanged<_ReviewStatus> onStatusChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      top: false,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          border: Border.all(color: Colors.blueGrey.shade100),
+          borderRadius: BorderRadius.circular(8),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.08),
+              blurRadius: 14,
+              offset: const Offset(0, -2),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            IconButton.filledTonal(
+              tooltip: 'Previous section',
+              onPressed: canGoPrevious ? onPrevious : null,
+              icon: const Icon(Icons.chevron_left),
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: DropdownButtonFormField<_ReviewStatus>(
+                initialValue: status,
+                decoration: const InputDecoration(
+                  labelText: 'Status',
+                  isDense: true,
+                ),
+                items: _ReviewStatus.values.map((status) {
+                  return DropdownMenuItem(
+                    value: status,
+                    child: Text(status.label),
+                  );
+                }).toList(),
+                onChanged: (value) {
+                  if (value != null) {
+                    onStatusChanged(value);
+                  }
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filled(
+              tooltip: 'Next section',
+              onPressed: canGoNext ? onNext : null,
+              icon: const Icon(Icons.chevron_right),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _SectionNavigation extends StatelessWidget {
   const _SectionNavigation({
     required this.sections,
@@ -618,12 +901,14 @@ class _SectionSurface extends StatelessWidget {
     required this.ticker,
     required this.status,
     required this.onStatusChanged,
+    this.showStatusControl = true,
   });
 
   final _AnalysisSection section;
   final String ticker;
   final _ReviewStatus status;
   final ValueChanged<_ReviewStatus> onStatusChanged;
+  final bool showStatusControl;
 
   @override
   Widget build(BuildContext context) {
@@ -660,7 +945,8 @@ class _SectionSurface extends StatelessWidget {
                     ],
                   ),
                 ),
-                _StatusDropdown(status: status, onChanged: onStatusChanged),
+                if (showStatusControl)
+                  _StatusDropdown(status: status, onChanged: onStatusChanged),
               ],
             ),
           ),
