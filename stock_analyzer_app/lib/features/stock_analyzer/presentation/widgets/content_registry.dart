@@ -11,6 +11,7 @@ import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/institutional_ownership_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/investment_risks_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/margin_of_safety_content.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/price_alerts_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/sale_target_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/sector_comparison_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/valuation_method_content.dart';
@@ -29,6 +30,8 @@ final Map<String, ContentWidgetBuilder> contentRegistry = {
   'Growth Driver': (ticker) => GrowthDriverContent(ticker: ticker),
   'Valuation Method': (ticker) => ValuationMethodContent(ticker: ticker),
   'Margin of Safety': (ticker) => MarginOfSafetyContent(ticker: ticker),
+  'Price Alerts / Target Tracking': (ticker) =>
+      PriceAlertsContent(ticker: ticker),
   'Investment Risks': (ticker) => InvestmentRisksContent(ticker: ticker),
   'Sale Target': (ticker) => SaleTargetContent(ticker: ticker),
   'Implied Volatility (IV)': (ticker) =>

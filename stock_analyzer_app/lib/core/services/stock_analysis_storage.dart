@@ -36,11 +36,12 @@ class StockAnalysisStorage {
   static const String decisionSummarySection = 'decisionSummary';
   static const String economicMoatSection = 'economicMoat';
   static const String marginOfSafetySection = 'marginOfSafety';
+  static const String priceAlertsSection = 'priceAlerts';
   static const String saleTargetSection = 'saleTarget';
   static const String valuationMethodSection = 'valuationMethod';
   static const String _keyPrefix = 'stock_analysis';
   static const String _reviewStatusesKey = 'reviewStatuses';
-  static const int analysisSectionCount = 16;
+  static const int analysisSectionCount = 17;
 
   static Future<Map<String, dynamic>?> loadSection({
     required String ticker,

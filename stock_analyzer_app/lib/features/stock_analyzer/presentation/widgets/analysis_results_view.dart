@@ -79,6 +79,11 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
       icon: Icons.shield,
     ),
     _AnalysisSection(
+      title: 'Price Alerts / Target Tracking',
+      category: 'Valuation',
+      icon: Icons.notifications_active,
+    ),
+    _AnalysisSection(
       title: 'Sale Target',
       category: 'Valuation',
       icon: Icons.flag,
