@@ -37,6 +37,7 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
   bool _isSaving = false;
   bool _hasSavedData = false;
   DateTime? _lastSavedAt;
+  String? _businessOverviewMessage;
 
   String _businessQuality = 'Watch';
   String _valuation = 'Fair';
@@ -157,12 +158,94 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
       _hasSavedData = false;
       _lastSavedAt = null;
       _isSaving = false;
+      _businessOverviewMessage = null;
     });
   }
 
   void _setValue(void Function() update) {
     setState(update);
     _scheduleSave();
+  }
+
+  Future<void> _applyBusinessOverview() async {
+    final data = await StockAnalysisStorage.loadSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.businessOverviewSection,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (data == null) {
+      setState(() {
+        _businessOverviewMessage =
+            'No saved Business Overview found for ${widget.ticker.toUpperCase()}.';
+      });
+      return;
+    }
+
+    final qualityLabel = '${data['qualityLabel'] ?? ''}'.trim();
+    final businessQuality = _businessQualityFromOverview(qualityLabel);
+    final overviewNote = _buildBusinessOverviewNote(data);
+    final currentNotes = _removeExistingBusinessOverviewBlock(
+      _notesController.text,
+    ).trim();
+
+    setState(() {
+      _businessQuality = businessQuality;
+      _notesController.text = [
+        overviewNote,
+        if (currentNotes.isNotEmpty) currentNotes,
+      ].join('\n\n');
+      _businessOverviewMessage =
+          'Applied Business Overview: $qualityLabel mapped to $businessQuality.';
+    });
+
+    await _saveNow();
+  }
+
+  String _businessQualityFromOverview(String qualityLabel) {
+    return switch (qualityLabel) {
+      'Strong' => 'Pass',
+      'Weak' => 'Fail',
+      _ => 'Watch',
+    };
+  }
+
+  String _buildBusinessOverviewNote(Map<String, dynamic> data) {
+    final qualityLabel = '${data['qualityLabel'] ?? 'Not set'}'.trim();
+    final qualityScore = '${data['qualityScore'] ?? 'Not set'}'.trim();
+    final lines = <String>[
+      '[Business Overview]',
+      'Business quality: $qualityLabel ($qualityScore score)',
+      _noteLine('Business model', data['businessModel']),
+      _noteLine('Revenue sources', data['revenueSources']),
+      _noteLine('Main segment', data['mainSegment']),
+      _noteLine('Growth driver', data['growthDriver']),
+      _noteLine('Earnings signal', data['earningsSignal']),
+      _noteLine('Stock trend', data['stockTrend']),
+      '[/Business Overview]',
+    ];
+
+    return lines.where((line) => line.trim().isNotEmpty).join('\n');
+  }
+
+  String _noteLine(String label, Object? value) {
+    final text = '${value ?? ''}'.trim();
+    if (text.isEmpty) {
+      return '';
+    }
+    return '$label: $text';
+  }
+
+  String _removeExistingBusinessOverviewBlock(String text) {
+    return text
+        .replaceAll(
+          RegExp(r'\n*\[Business Overview\][\s\S]*?\[/Business Overview\]\n*'),
+          '\n',
+        )
+        .trim();
   }
 
   @override
@@ -211,6 +294,29 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
             'Final Action: $_finalAction. Business Quality is $_businessQuality, valuation is $_valuation, entry point is $_entryPoint, and risk is $_riskLevel.',
           ),
         ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OutlinedButton.icon(
+              onPressed: _applyBusinessOverview,
+              icon: const Icon(Icons.account_tree_outlined),
+              label: const Text('Use Business Overview'),
+            ),
+          ],
+        ),
+        if (_businessOverviewMessage != null) ...[
+          const SizedBox(height: 12),
+          AppNote(
+            title: 'Business Overview sync',
+            icon: Icons.sync_alt,
+            tone: _businessOverviewMessage!.startsWith('No saved')
+                ? AppNoteTone.warning
+                : AppNoteTone.success,
+            child: Text(_businessOverviewMessage!),
+          ),
+        ],
         const SizedBox(height: 16),
         EditableTable(
           rows: [
