@@ -28,26 +28,14 @@ class OllamaAiService {
     final ownsClient = _client == null;
 
     try {
-      return await switch (provider) {
-        AiAnalysisProvider.ollama => _generateWithOllama(
-          client: client,
-          baseUrl: baseUrl,
-          model: model,
-          analysisMarkdown: analysisMarkdown,
-        ),
-        AiAnalysisProvider.gemini => _generateWithGemini(
-          client: client,
-          apiKey: apiKey,
-          model: model,
-          analysisMarkdown: analysisMarkdown,
-        ),
-        AiAnalysisProvider.groq => _generateWithGroq(
-          client: client,
-          apiKey: apiKey,
-          model: model,
-          analysisMarkdown: analysisMarkdown,
-        ),
-      };
+      return await _generateText(
+        client: client,
+        provider: provider,
+        baseUrl: baseUrl,
+        model: model,
+        apiKey: apiKey,
+        prompt: _buildPrompt(analysisMarkdown),
+      );
     } on OllamaAiException {
       rethrow;
     } catch (error) {
@@ -59,11 +47,81 @@ class OllamaAiService {
     }
   }
 
+  Future<BusinessOverviewDraft> generateBusinessOverviewDraft({
+    AiAnalysisProvider provider = AiAnalysisProvider.ollama,
+    required String baseUrl,
+    required String model,
+    required String ticker,
+    required String rawResearch,
+    String apiKey = '',
+  }) async {
+    if (rawResearch.trim().isEmpty) {
+      throw const OllamaAiException('Paste raw research before generating.');
+    }
+
+    final client = _client ?? http.Client();
+    final ownsClient = _client == null;
+
+    try {
+      final response = await _generateText(
+        client: client,
+        provider: provider,
+        baseUrl: baseUrl,
+        model: model,
+        apiKey: apiKey,
+        prompt: _buildBusinessOverviewPrompt(
+          ticker: ticker,
+          rawResearch: rawResearch,
+        ),
+      );
+
+      return BusinessOverviewDraft.fromAiResponse(response);
+    } on OllamaAiException {
+      rethrow;
+    } catch (error) {
+      throw OllamaAiException(_connectionErrorMessage(provider, error));
+    } finally {
+      if (ownsClient) {
+        client.close();
+      }
+    }
+  }
+
+  Future<String> _generateText({
+    required http.Client client,
+    required AiAnalysisProvider provider,
+    required String baseUrl,
+    required String model,
+    required String apiKey,
+    required String prompt,
+  }) async {
+    return switch (provider) {
+      AiAnalysisProvider.ollama => _generateWithOllama(
+        client: client,
+        baseUrl: baseUrl,
+        model: model,
+        prompt: prompt,
+      ),
+      AiAnalysisProvider.gemini => _generateWithGemini(
+        client: client,
+        apiKey: apiKey,
+        model: model,
+        prompt: prompt,
+      ),
+      AiAnalysisProvider.groq => _generateWithGroq(
+        client: client,
+        apiKey: apiKey,
+        model: model,
+        prompt: prompt,
+      ),
+    };
+  }
+
   Future<String> _generateWithOllama({
     required http.Client client,
     required String baseUrl,
     required String model,
-    required String analysisMarkdown,
+    required String prompt,
   }) async {
     final response = await client.post(
       _ollamaGenerateUri(baseUrl),
@@ -72,7 +130,7 @@ class OllamaAiService {
         'model': model.trim(),
         'stream': false,
         'options': {'temperature': 0.2},
-        'prompt': _buildPrompt(analysisMarkdown),
+        'prompt': prompt,
       }),
     );
 
@@ -97,7 +155,7 @@ class OllamaAiService {
     required http.Client client,
     required String apiKey,
     required String model,
-    required String analysisMarkdown,
+    required String prompt,
   }) async {
     if (apiKey.trim().isEmpty) {
       throw const OllamaAiException('Enter your Gemini API key.');
@@ -115,7 +173,7 @@ class OllamaAiService {
         'contents': [
           {
             'parts': [
-              {'text': _buildPrompt(analysisMarkdown)},
+              {'text': prompt},
             ],
           },
         ],
@@ -157,7 +215,7 @@ class OllamaAiService {
     required http.Client client,
     required String apiKey,
     required String model,
-    required String analysisMarkdown,
+    required String prompt,
   }) async {
     if (apiKey.trim().isEmpty) {
       throw const OllamaAiException('Enter your Groq API key.');
@@ -177,9 +235,9 @@ class OllamaAiService {
           {
             'role': 'system',
             'content':
-                'You summarize a user-provided investment checklist without inventing missing facts or giving personalized financial advice.',
+                'You help structure user-provided investment research without inventing missing facts or giving personalized financial advice.',
           },
-          {'role': 'user', 'content': _buildPrompt(analysisMarkdown)},
+          {'role': 'user', 'content': prompt},
         ],
       }),
     );
@@ -298,6 +356,102 @@ Return this exact structure:
 Analysis notes:
 $analysisMarkdown
 ''';
+  }
+
+  String _buildBusinessOverviewPrompt({
+    required String ticker,
+    required String rawResearch,
+  }) {
+    return '''
+You are an investment research assistant converting the user's raw research notes into structured business overview fields.
+
+Important:
+- Use only the raw notes provided.
+- Do not invent missing facts.
+- If a field is missing or unclear, write "Needs verification: ..." and say what should be checked.
+- Keep each field concise, plain-English, and useful for an investor checklist.
+- Do not give personalized financial advice.
+- Return valid JSON only. Do not include markdown fences or commentary.
+
+Return exactly these JSON keys:
+{
+  "businessModel": "",
+  "revenueSources": "",
+  "mainSegment": "",
+  "growthDriver": "",
+  "earningsSignal": "",
+  "stockTrend": ""
+}
+
+Ticker: ${ticker.toUpperCase()}
+
+Raw research notes:
+$rawResearch
+''';
+  }
+}
+
+class BusinessOverviewDraft {
+  const BusinessOverviewDraft({
+    required this.businessModel,
+    required this.revenueSources,
+    required this.mainSegment,
+    required this.growthDriver,
+    required this.earningsSignal,
+    required this.stockTrend,
+  });
+
+  final String businessModel;
+  final String revenueSources;
+  final String mainSegment;
+  final String growthDriver;
+  final String earningsSignal;
+  final String stockTrend;
+
+  factory BusinessOverviewDraft.fromAiResponse(String response) {
+    final jsonText = _extractJsonObject(response);
+    final decoded = jsonDecode(jsonText);
+    if (decoded is! Map<String, dynamic>) {
+      throw const OllamaAiException(
+        'AI returned a response that was not a JSON object.',
+      );
+    }
+
+    return BusinessOverviewDraft(
+      businessModel: _readString(decoded, 'businessModel'),
+      revenueSources: _readString(decoded, 'revenueSources'),
+      mainSegment: _readString(decoded, 'mainSegment'),
+      growthDriver: _readString(decoded, 'growthDriver'),
+      earningsSignal: _readString(decoded, 'earningsSignal'),
+      stockTrend: _readString(decoded, 'stockTrend'),
+    );
+  }
+
+  static String _readString(Map<String, dynamic> data, String key) {
+    return '${data[key] ?? ''}'.trim();
+  }
+
+  static String _extractJsonObject(String response) {
+    final trimmed = response.trim();
+    final fenced = RegExp(
+      r'```(?:json)?\s*([\s\S]*?)\s*```',
+      caseSensitive: false,
+    ).firstMatch(trimmed);
+    final candidate = fenced?.group(1)?.trim() ?? trimmed;
+
+    if (candidate.startsWith('{') && candidate.endsWith('}')) {
+      return candidate;
+    }
+
+    final start = candidate.indexOf('{');
+    final end = candidate.lastIndexOf('}');
+    if (start >= 0 && end > start) {
+      return candidate.substring(start, end + 1);
+    }
+
+    throw const OllamaAiException(
+      'AI did not return JSON. Try again or paste more structured source text.',
+    );
   }
 }
 

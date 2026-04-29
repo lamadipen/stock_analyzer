@@ -111,6 +111,54 @@ void main() {
       expect(summary, 'Groq list summary');
     });
 
+    test('generates business overview draft from fenced JSON', () async {
+      String? requestBody;
+      final service = OllamaAiService(
+        client: MockClient((request) async {
+          requestBody = request.body;
+          return http.Response(r'''
+{
+  "response": "```json\n{\"businessModel\":\"Sells creative software subscriptions\",\"revenueSources\":\"Subscription revenue\",\"mainSegment\":\"Digital Media\",\"growthDriver\":\"AI-assisted creative workflows\",\"earningsSignal\":\"Needs verification: next EPS estimate\",\"stockTrend\":\"Needs verification: 1-year and 5-year chart\"}\n```",
+  "done": true
+}
+''', 200);
+        }),
+      );
+
+      final draft = await service.generateBusinessOverviewDraft(
+        provider: AiAnalysisProvider.ollama,
+        baseUrl: 'http://localhost:11434',
+        model: 'gemma3',
+        ticker: 'ADBE',
+        rawResearch: 'Adobe sells Creative Cloud subscriptions.',
+      );
+
+      expect(draft.businessModel, 'Sells creative software subscriptions');
+      expect(draft.mainSegment, 'Digital Media');
+      expect(requestBody, contains('Return valid JSON only'));
+    });
+
+    test('requires raw research before generating business overview draft', () {
+      const service = OllamaAiService();
+
+      expect(
+        () => service.generateBusinessOverviewDraft(
+          provider: AiAnalysisProvider.ollama,
+          baseUrl: 'http://localhost:11434',
+          model: 'gemma3',
+          ticker: 'ADBE',
+          rawResearch: '',
+        ),
+        throwsA(
+          isA<OllamaAiException>().having(
+            (error) => error.message,
+            'message',
+            contains('Paste raw research'),
+          ),
+        ),
+      );
+    });
+
     test('includes provider error details for Groq failures', () async {
       final service = OllamaAiService(
         client: MockClient((request) async {

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:stock_analyzer_app/core/services/ollama_ai_service.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
@@ -27,13 +28,23 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
       TextEditingController();
   final TextEditingController _stockTrendController = TextEditingController();
   final TextEditingController _rawResearchController = TextEditingController();
+  final TextEditingController _baseUrlController = TextEditingController(
+    text: 'http://localhost:11434',
+  );
+  final TextEditingController _modelController = TextEditingController(
+    text: 'gemma3',
+  );
+  final TextEditingController _apiKeyController = TextEditingController();
   Timer? _saveDebounce;
 
+  AiAnalysisProvider _provider = AiAnalysisProvider.ollama;
   bool _isLoading = true;
   bool _isSaving = false;
+  bool _isGenerating = false;
   bool _hasSavedData = false;
   bool _suspendAutosave = false;
   DateTime? _lastSavedAt;
+  String? _errorMessage;
   late List<_BusinessChecklistItem> _items = _defaultItems();
 
   @override
@@ -42,6 +53,8 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     for (final controller in _controllers) {
       controller.addListener(_scheduleSave);
     }
+    _baseUrlController.addListener(_scheduleSave);
+    _modelController.addListener(_scheduleSave);
     _loadSavedData();
   }
 
@@ -113,6 +126,14 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     _earningsSignalController.text = '${data['earningsSignal'] ?? ''}';
     _stockTrendController.text = '${data['stockTrend'] ?? ''}';
     _rawResearchController.text = '${data['rawResearch'] ?? ''}';
+    _provider = AiAnalysisProvider.values.firstWhere(
+      (provider) => provider.name == '${data['provider'] ?? ''}',
+      orElse: () => AiAnalysisProvider.ollama,
+    );
+    _baseUrlController.text = '${data['baseUrl'] ?? _baseUrlController.text}'
+        .trim();
+    _modelController.text = '${data['model'] ?? _defaultModelFor(_provider)}'
+        .trim();
 
     final savedItems = data['items'];
     if (savedItems is List) {
@@ -159,6 +180,9 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
         'earningsSignal': _earningsSignalController.text.trim(),
         'stockTrend': _stockTrendController.text.trim(),
         'rawResearch': _rawResearchController.text.trim(),
+        'provider': _provider.name,
+        'baseUrl': _baseUrlController.text.trim(),
+        'model': _modelController.text.trim(),
         'items': _items.map((item) {
           return {'title': item.title, 'isChecked': item.isChecked};
         }).toList(),
@@ -176,6 +200,70 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
       _hasSavedData = true;
       _lastSavedAt = savedAt;
     });
+  }
+
+  Future<void> _generateDraft() async {
+    final model = _modelController.text.trim();
+    final baseUrl = _baseUrlController.text.trim();
+    final apiKey = _apiKeyController.text.trim();
+
+    if (_rawResearchController.text.trim().isEmpty) {
+      setState(() {
+        _errorMessage = 'Paste raw research before generating.';
+      });
+      return;
+    }
+
+    if (model.isEmpty ||
+        (_provider == AiAnalysisProvider.ollama && baseUrl.isEmpty)) {
+      setState(() {
+        _errorMessage = 'Enter a provider URL and model name.';
+      });
+      return;
+    }
+
+    setState(() {
+      _isGenerating = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final draft = await const OllamaAiService().generateBusinessOverviewDraft(
+        provider: _provider,
+        baseUrl: baseUrl,
+        model: model,
+        apiKey: apiKey,
+        ticker: widget.ticker,
+        rawResearch: _rawResearchController.text,
+      );
+
+      if (!mounted) {
+        return;
+      }
+
+      _suspendAutosave = true;
+      _businessModelController.text = draft.businessModel;
+      _revenueSourcesController.text = draft.revenueSources;
+      _mainSegmentController.text = draft.mainSegment;
+      _growthDriverController.text = draft.growthDriver;
+      _earningsSignalController.text = draft.earningsSignal;
+      _stockTrendController.text = draft.stockTrend;
+      _suspendAutosave = false;
+
+      await _saveNow();
+    } on OllamaAiException catch (error) {
+      if (!mounted) {
+        return;
+      }
+      setState(() => _errorMessage = error.message);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isGenerating = false;
+          _suspendAutosave = false;
+        });
+      }
+    }
   }
 
   Future<void> _resetSection() async {
@@ -198,6 +286,7 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
       _hasSavedData = false;
       _lastSavedAt = null;
       _isSaving = false;
+      _errorMessage = null;
     });
     _suspendAutosave = false;
   }
@@ -250,6 +339,9 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     for (final controller in _controllers) {
       controller.dispose();
     }
+    _baseUrlController.dispose();
+    _modelController.dispose();
+    _apiKeyController.dispose();
     super.dispose();
   }
 
@@ -310,6 +402,52 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
             _scheduleSave();
           },
         ),
+        const SizedBox(height: 16),
+        _rawResearchField(),
+        const SizedBox(height: 16),
+        _AiDraftControls(
+          provider: _provider,
+          baseUrlController: _baseUrlController,
+          modelController: _modelController,
+          apiKeyController: _apiKeyController,
+          isGenerating: _isGenerating,
+          onProviderChanged: (provider) {
+            setState(() {
+              _provider = provider;
+              _modelController.text = _defaultModelFor(provider);
+              _errorMessage = null;
+            });
+            _scheduleSave();
+          },
+          onGenerate: _generateDraft,
+        ),
+        if (_isGenerating) ...[
+          const SizedBox(height: 12),
+          AppNote(
+            title: 'Generating business overview',
+            icon: Icons.hourglass_top,
+            tone: AppNoteTone.info,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const LinearProgressIndicator(),
+                const SizedBox(height: 10),
+                Text(
+                  'Waiting for ${_provider.label}. Local models can take a little longer.',
+                ),
+              ],
+            ),
+          ),
+        ],
+        if (_errorMessage != null) ...[
+          const SizedBox(height: 12),
+          AppNote(
+            tone: AppNoteTone.risk,
+            title: 'AI draft issue',
+            icon: Icons.error_outline,
+            child: Text(_errorMessage!),
+          ),
+        ],
         const SizedBox(height: 16),
         const Text(
           'Business Research Notes',
@@ -373,20 +511,6 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
           ],
         ),
         const SizedBox(height: 16),
-        TextField(
-          controller: _rawResearchController,
-          minLines: 4,
-          maxLines: 8,
-          decoration: const InputDecoration(
-            labelText: 'Raw Research / Paste Zone',
-            hintText:
-                'Paste company description, StockAnalysis stats, revenue breakdown, or EarningsWhispers notes here.',
-            border: OutlineInputBorder(),
-            alignLabelWithHint: true,
-            prefixIcon: Icon(Icons.content_paste_search),
-          ),
-        ),
-        const SizedBox(height: 16),
         _ReportPreviewCard(report: _reportPreview),
         const SizedBox(height: 16),
         const AppNote(
@@ -423,6 +547,157 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
         border: const OutlineInputBorder(),
         isDense: true,
       ),
+    );
+  }
+
+  Widget _rawResearchField() {
+    return TextField(
+      controller: _rawResearchController,
+      minLines: 4,
+      maxLines: 8,
+      decoration: const InputDecoration(
+        labelText: 'Raw Research / Paste Zone',
+        hintText:
+            'Paste company description, StockAnalysis stats, revenue breakdown, or EarningsWhispers notes here.',
+        border: OutlineInputBorder(),
+        alignLabelWithHint: true,
+        prefixIcon: Icon(Icons.content_paste_search),
+      ),
+    );
+  }
+
+  String _defaultModelFor(AiAnalysisProvider provider) {
+    return switch (provider) {
+      AiAnalysisProvider.ollama => 'gemma3',
+      AiAnalysisProvider.gemini => 'gemini-2.5-flash',
+      AiAnalysisProvider.groq => 'llama-3.3-70b-versatile',
+    };
+  }
+}
+
+class _AiDraftControls extends StatelessWidget {
+  const _AiDraftControls({
+    required this.provider,
+    required this.baseUrlController,
+    required this.modelController,
+    required this.apiKeyController,
+    required this.isGenerating,
+    required this.onProviderChanged,
+    required this.onGenerate,
+  });
+
+  final AiAnalysisProvider provider;
+  final TextEditingController baseUrlController;
+  final TextEditingController modelController;
+  final TextEditingController apiKeyController;
+  final bool isGenerating;
+  final ValueChanged<AiAnalysisProvider> onProviderChanged;
+  final VoidCallback onGenerate;
+
+  @override
+  Widget build(BuildContext context) {
+    final providerField = DropdownButtonFormField<AiAnalysisProvider>(
+      initialValue: provider,
+      decoration: const InputDecoration(
+        labelText: 'AI Provider',
+        border: OutlineInputBorder(),
+        prefixIcon: Icon(Icons.hub_outlined),
+      ),
+      items: AiAnalysisProvider.values.map((provider) {
+        return DropdownMenuItem(value: provider, child: Text(provider.label));
+      }).toList(),
+      onChanged: isGenerating
+          ? null
+          : (value) {
+              if (value != null) {
+                onProviderChanged(value);
+              }
+            },
+    );
+
+    final urlField = TextField(
+      controller: baseUrlController,
+      enabled: !isGenerating,
+      decoration: const InputDecoration(
+        labelText: 'Ollama URL',
+        hintText: 'http://localhost:11434',
+        border: OutlineInputBorder(),
+        prefixIcon: Icon(Icons.link),
+      ),
+    );
+    final modelField = TextField(
+      controller: modelController,
+      enabled: !isGenerating,
+      decoration: const InputDecoration(
+        labelText: 'Model',
+        hintText: 'gemma3, gemini-2.5-flash, llama-3.3-70b-versatile',
+        border: OutlineInputBorder(),
+        prefixIcon: Icon(Icons.smart_toy_outlined),
+      ),
+    );
+    final apiKeyField = TextField(
+      controller: apiKeyController,
+      obscureText: true,
+      enabled: !isGenerating,
+      decoration: InputDecoration(
+        labelText: '${provider.label} API Key',
+        hintText: 'Paste your API key',
+        border: const OutlineInputBorder(),
+        prefixIcon: const Icon(Icons.key),
+      ),
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const AppNote(
+          title: 'AI draft',
+          icon: Icons.auto_awesome,
+          child: Text(
+            'Paste raw source text, then generate a structured draft. API keys are used only for the request and are not saved.',
+          ),
+        ),
+        const SizedBox(height: 12),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final fields = [
+              providerField,
+              if (provider == AiAnalysisProvider.ollama) urlField,
+              modelField,
+              if (provider != AiAnalysisProvider.ollama) apiKeyField,
+            ];
+
+            if (constraints.maxWidth < 720) {
+              return Column(
+                children: fields
+                    .expand((field) => [field, const SizedBox(height: 12)])
+                    .take(fields.length * 2 - 1)
+                    .toList(),
+              );
+            }
+
+            return Row(
+              children: [
+                for (var i = 0; i < fields.length; i++) ...[
+                  Expanded(flex: i == 0 ? 2 : 3, child: fields[i]),
+                  if (i != fields.length - 1) const SizedBox(width: 12),
+                ],
+              ],
+            );
+          },
+        ),
+        const SizedBox(height: 12),
+        FilledButton.icon(
+          onPressed: isGenerating ? null : onGenerate,
+          icon: isGenerating
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.auto_fix_high),
+          label: Text(isGenerating ? 'Generating...' : 'Generate Draft'),
+        ),
+      ],
     );
   }
 }
