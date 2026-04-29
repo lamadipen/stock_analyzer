@@ -36,6 +36,16 @@ Map<String, String> buildDebtLinks(String ticker) {
   };
 }
 
+Map<String, String> buildBusinessOverviewLinks(String ticker) {
+  final String upper = ticker.toUpperCase();
+  final String lower = ticker.toLowerCase();
+  return {
+    'Stock Analysis Overview': 'https://stockanalysis.com/stocks/$lower/',
+    'Earnings Whispers EPS':
+        'https://www.earningswhispers.com/epsdetails/$upper',
+  };
+}
+
 /// sector comparison deep-links
 Map<String, String> buildSectorComparisionLinks(String ticker) {
   return {'Finviz': 'https://finviz.com/groups.ashx?g=sector&v=210&o=name'};
