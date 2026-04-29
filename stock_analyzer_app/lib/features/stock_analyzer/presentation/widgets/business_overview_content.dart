@@ -1,94 +1,393 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
-class BusinessOverviewContent extends StatelessWidget {
+class BusinessOverviewContent extends StatefulWidget {
   final String ticker;
   const BusinessOverviewContent({super.key, required this.ticker});
 
   @override
+  State<BusinessOverviewContent> createState() =>
+      _BusinessOverviewContentState();
+}
+
+class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
+  final TextEditingController _businessModelController =
+      TextEditingController();
+  final TextEditingController _revenueSourcesController =
+      TextEditingController();
+  final TextEditingController _mainSegmentController = TextEditingController();
+  final TextEditingController _growthDriverController = TextEditingController();
+  final TextEditingController _earningsSignalController =
+      TextEditingController();
+  final TextEditingController _stockTrendController = TextEditingController();
+  final TextEditingController _rawResearchController = TextEditingController();
+  Timer? _saveDebounce;
+
+  bool _isLoading = true;
+  bool _isSaving = false;
+  bool _hasSavedData = false;
+  bool _suspendAutosave = false;
+  DateTime? _lastSavedAt;
+  late List<_BusinessChecklistItem> _items = _defaultItems();
+
+  @override
+  void initState() {
+    super.initState();
+    for (final controller in _controllers) {
+      controller.addListener(_scheduleSave);
+    }
+    _loadSavedData();
+  }
+
+  List<TextEditingController> get _controllers => [
+    _businessModelController,
+    _revenueSourcesController,
+    _mainSegmentController,
+    _growthDriverController,
+    _earningsSignalController,
+    _stockTrendController,
+    _rawResearchController,
+  ];
+
+  List<_BusinessChecklistItem> _defaultItems() {
+    return const [
+      _BusinessChecklistItem(
+        title: 'Clear business model',
+        subtitle:
+            'You can explain what the company sells and who pays for it in one sentence.',
+        isChecked: true,
+      ),
+      _BusinessChecklistItem(
+        title: 'Revenue sources are understandable',
+        subtitle:
+            'Major products, services, segments, or customer groups are identifiable.',
+      ),
+      _BusinessChecklistItem(
+        title: 'Recurring or durable revenue profile',
+        subtitle:
+            'Subscriptions, usage, repeat purchases, or high retention support revenue durability.',
+      ),
+      _BusinessChecklistItem(
+        title: 'Demand has a long-term tailwind',
+        subtitle:
+            'Growth is connected to a durable market trend instead of only short-term hype.',
+      ),
+      _BusinessChecklistItem(
+        title: 'Stock trend supports investor confidence',
+        subtitle:
+            'The 1-year and 5-year charts do not contradict the business story.',
+      ),
+      _BusinessChecklistItem(
+        title: 'Earnings expectations support momentum',
+        subtitle:
+            'Expected EPS, recent beats/misses, and price reaction do not point to a broken setup.',
+      ),
+    ];
+  }
+
+  Future<void> _loadSavedData() async {
+    final data = await StockAnalysisStorage.loadSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.businessOverviewSection,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    if (data == null) {
+      setState(() => _isLoading = false);
+      return;
+    }
+
+    _businessModelController.text = '${data['businessModel'] ?? ''}';
+    _revenueSourcesController.text = '${data['revenueSources'] ?? ''}';
+    _mainSegmentController.text = '${data['mainSegment'] ?? ''}';
+    _growthDriverController.text = '${data['growthDriver'] ?? ''}';
+    _earningsSignalController.text = '${data['earningsSignal'] ?? ''}';
+    _stockTrendController.text = '${data['stockTrend'] ?? ''}';
+    _rawResearchController.text = '${data['rawResearch'] ?? ''}';
+
+    final savedItems = data['items'];
+    if (savedItems is List) {
+      final checkedByTitle = <String, bool>{};
+      for (final item in savedItems.whereType<Map<String, dynamic>>()) {
+        checkedByTitle['${item['title']}'] = item['isChecked'] == true;
+      }
+
+      _items = _items.map((item) {
+        return item.copyWith(isChecked: checkedByTitle[item.title]);
+      }).toList();
+    }
+
+    setState(() {
+      _isLoading = false;
+      _hasSavedData = true;
+      _lastSavedAt = DateTime.tryParse('${data['savedAt'] ?? ''}');
+    });
+  }
+
+  void _scheduleSave() {
+    if (_isLoading || _suspendAutosave) {
+      return;
+    }
+
+    _saveDebounce?.cancel();
+    _saveDebounce = Timer(const Duration(milliseconds: 500), _saveNow);
+  }
+
+  Future<void> _saveNow() async {
+    _saveDebounce?.cancel();
+    setState(() => _isSaving = true);
+    final savedAt = DateTime.now();
+
+    await StockAnalysisStorage.saveSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.businessOverviewSection,
+      data: {
+        'savedAt': savedAt.toIso8601String(),
+        'businessModel': _businessModelController.text.trim(),
+        'revenueSources': _revenueSourcesController.text.trim(),
+        'mainSegment': _mainSegmentController.text.trim(),
+        'growthDriver': _growthDriverController.text.trim(),
+        'earningsSignal': _earningsSignalController.text.trim(),
+        'stockTrend': _stockTrendController.text.trim(),
+        'rawResearch': _rawResearchController.text.trim(),
+        'items': _items.map((item) {
+          return {'title': item.title, 'isChecked': item.isChecked};
+        }).toList(),
+        'qualityScore': _qualityScore,
+        'qualityLabel': _qualityLabel,
+      },
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _isSaving = false;
+      _hasSavedData = true;
+      _lastSavedAt = savedAt;
+    });
+  }
+
+  Future<void> _resetSection() async {
+    _saveDebounce?.cancel();
+    await StockAnalysisStorage.clearSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.businessOverviewSection,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    _suspendAutosave = true;
+    setState(() {
+      for (final controller in _controllers) {
+        controller.clear();
+      }
+      _items = _defaultItems();
+      _hasSavedData = false;
+      _lastSavedAt = null;
+      _isSaving = false;
+    });
+    _suspendAutosave = false;
+  }
+
+  int get _qualityScore => _items.where((item) => item.isChecked).length;
+
+  String get _qualityLabel {
+    final score = _qualityScore;
+    if (score >= 5) {
+      return 'Strong';
+    }
+    if (score >= 3) {
+      return 'Mixed';
+    }
+    return 'Weak';
+  }
+
+  AppNoteTone get _qualityTone {
+    return switch (_qualityLabel) {
+      'Strong' => AppNoteTone.success,
+      'Weak' => AppNoteTone.risk,
+      _ => AppNoteTone.warning,
+    };
+  }
+
+  String get _reportPreview {
+    final values = [
+      ('Business model', _businessModelController.text),
+      ('Revenue sources', _revenueSourcesController.text),
+      ('Main segment', _mainSegmentController.text),
+      ('Growth driver', _growthDriverController.text),
+      ('Earnings signal', _earningsSignalController.text),
+      ('Stock trend', _stockTrendController.text),
+    ];
+
+    final filled = values
+        .where((entry) => entry.$2.trim().isNotEmpty)
+        .map((entry) => '- ${entry.$1}: ${entry.$2.trim()}')
+        .join('\n');
+
+    return [
+      '${widget.ticker.toUpperCase()} business quality: $_qualityLabel ($_qualityScore/${_items.length}).',
+      if (filled.isNotEmpty) filled,
+    ].join('\n\n');
+  }
+
+  @override
+  void dispose() {
+    _saveDebounce?.cancel();
+    for (final controller in _controllers) {
+      controller.dispose();
+    }
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final links = buildBusinessOverviewLinks(ticker);
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final links = buildBusinessOverviewLinks(widget.ticker);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        AppNote(
-          title: 'Business snapshot',
-          icon: Icons.lightbulb_outline,
-          child: Text(
-            'Understand what ${ticker.toUpperCase()} does, how revenue is generated, and whether earnings expectations support the business story.',
-          ),
-        ),
-        const SizedBox(height: 16),
-        const ChecklistCard(
-          items: [
-            ChecklistCardItem(
-              title: 'What does the company sell?',
-              subtitle:
-                  'Identify the core products, services, subscriptions, platforms, or marketplaces.',
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Business Overview for ${widget.ticker.toUpperCase()}',
+                style: const TextStyle(fontWeight: FontWeight.w700),
+              ),
             ),
-            ChecklistCardItem(
-              title: 'How does the company generate revenue?',
-              subtitle:
-                  'Separate recurring revenue, transaction revenue, services, licensing, ads, hardware, and other meaningful streams.',
+            SectionSaveStatusChip(
+              isSaving: _isSaving,
+              hasSavedData: _hasSavedData,
+              lastSavedAt: _lastSavedAt,
             ),
-            ChecklistCardItem(
-              title: 'Which segment drives the majority of revenue?',
-              subtitle:
-                  'Use the company overview and latest financials to find the main business segment and any fast-growing segment.',
-            ),
-            ChecklistCardItem(
-              title: 'Is demand structurally growing?',
-              subtitle:
-                  'Look for durable demand drivers such as digitization, cloud adoption, AI workflows, payments volume, or healthcare utilization.',
-            ),
-            ChecklistCardItem(
-              title: 'Does the stock trend confirm investor confidence?',
-              subtitle:
-                  'Check the 1-year, 5-year, and max charts to see if price action supports the business narrative.',
-            ),
-            ChecklistCardItem(
-              title: 'Do earnings expectations confirm momentum?',
-              subtitle:
-                  'Review the next earnings date, expected EPS, whisper/market expectation, and expected price reaction.',
+            const SizedBox(width: 8),
+            OutlinedButton.icon(
+              onPressed: _resetSection,
+              icon: const Icon(Icons.restart_alt),
+              label: const Text('Reset'),
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        AppNote(
+          title: 'Business quality: $_qualityLabel',
+          icon: Icons.lightbulb_outline,
+          tone: _qualityTone,
+          child: Text(
+            'Score: $_qualityScore/${_items.length}. Understand what ${widget.ticker.toUpperCase()} does, how revenue is generated, and whether earnings expectations support the business story.',
+          ),
+        ),
+        const SizedBox(height: 16),
+        ChecklistCard(
+          items: _items.map((item) {
+            return ChecklistCardItem(
+              title: item.title,
+              subtitle: item.subtitle,
+              isChecked: item.isChecked,
+            );
+          }).toList(),
+          onChanged: (index, isChecked) {
+            setState(() {
+              _items[index] = _items[index].copyWith(isChecked: isChecked);
+            });
+            _scheduleSave();
+          },
+        ),
         const SizedBox(height: 16),
         const Text(
-          'Business Quality Notes',
+          'Business Research Notes',
           style: TextStyle(fontWeight: FontWeight.w600),
         ),
         const SizedBox(height: 8),
-        const EditableTable(
+        EditableTable(
           rows: [
             EditableTableRow(
               label: 'Business model',
-              value: Text(
-                'Write a one-sentence explanation of what the company does and who pays for it.',
+              value: _textField(
+                controller: _businessModelController,
+                hintText:
+                    'Example: Adobe sells creative, document, and digital experience software to consumers and enterprises.',
               ),
             ),
             EditableTableRow(
               label: 'Revenue sources',
-              value: Text(
-                'List the largest revenue streams and call out whether revenue is recurring, usage-based, cyclical, or one-time.',
+              value: _textField(
+                controller: _revenueSourcesController,
+                hintText:
+                    'Subscriptions, services, licensing, advertising, transactions, hardware, or other streams.',
+                minLines: 2,
               ),
             ),
             EditableTableRow(
-              label: 'Growth engine',
-              value: Text(
-                'Name the main products, segments, geographies, or acquisitions expected to drive future revenue.',
+              label: 'Main segment',
+              value: _textField(
+                controller: _mainSegmentController,
+                hintText:
+                    'Largest revenue segment and any segment growing faster than the rest.',
               ),
             ),
             EditableTableRow(
-              label: 'Investor signal',
-              value: Text(
-                'Compare recent price trend, analyst rating, price target, and earnings expectation before forming a view.',
+              label: 'Growth driver',
+              value: _textField(
+                controller: _growthDriverController,
+                hintText:
+                    'Products, customers, geographies, acquisitions, AI, pricing, or market expansion.',
+                minLines: 2,
+              ),
+            ),
+            EditableTableRow(
+              label: 'Earnings signal',
+              value: _textField(
+                controller: _earningsSignalController,
+                hintText:
+                    'Next earnings date, expected EPS, whisper expectation, recent beats/misses, and expected reaction.',
+                minLines: 2,
+              ),
+            ),
+            EditableTableRow(
+              label: 'Stock trend',
+              value: _textField(
+                controller: _stockTrendController,
+                hintText:
+                    '1-year, 5-year, and max chart read. Note whether the trend confirms or challenges the thesis.',
+                minLines: 2,
               ),
             ),
           ],
         ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _rawResearchController,
+          minLines: 4,
+          maxLines: 8,
+          decoration: const InputDecoration(
+            labelText: 'Raw Research / Paste Zone',
+            hintText:
+                'Paste company description, StockAnalysis stats, revenue breakdown, or EarningsWhispers notes here.',
+            border: OutlineInputBorder(),
+            alignLabelWithHint: true,
+            prefixIcon: Icon(Icons.content_paste_search),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _ReportPreviewCard(report: _reportPreview),
         const SizedBox(height: 16),
         const AppNote(
           tone: AppNoteTone.info,
@@ -107,6 +406,79 @@ class BusinessOverviewContent extends StatelessWidget {
         const SizedBox(height: 16),
         ReferenceLinks(title: 'Business Overview References:', links: links),
       ],
+    );
+  }
+
+  Widget _textField({
+    required TextEditingController controller,
+    required String hintText,
+    int minLines = 1,
+  }) {
+    return TextField(
+      controller: controller,
+      minLines: minLines,
+      maxLines: 4,
+      decoration: InputDecoration(
+        hintText: hintText,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+    );
+  }
+}
+
+class _ReportPreviewCard extends StatelessWidget {
+  const _ReportPreviewCard({required this.report});
+
+  final String report;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: AnalysisColors.reference.shade50,
+        border: Border.all(color: AnalysisColors.reference.shade100),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.article_outlined, size: 20),
+              SizedBox(width: 8),
+              Text(
+                'Report Preview',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          SelectableText(report),
+        ],
+      ),
+    );
+  }
+}
+
+class _BusinessChecklistItem {
+  const _BusinessChecklistItem({
+    required this.title,
+    required this.subtitle,
+    this.isChecked = false,
+  });
+
+  final String title;
+  final String subtitle;
+  final bool isChecked;
+
+  _BusinessChecklistItem copyWith({bool? isChecked}) {
+    return _BusinessChecklistItem(
+      title: title,
+      subtitle: subtitle,
+      isChecked: isChecked ?? this.isChecked,
     );
   }
 }

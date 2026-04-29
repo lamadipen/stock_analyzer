@@ -32,6 +32,7 @@ class StockAnalysisStorage {
   const StockAnalysisStorage._();
 
   static const String aiAnalysisSummarySection = 'aiAnalysisSummary';
+  static const String businessOverviewSection = 'businessOverview';
   static const String competitorStudySection = 'competitorStudy';
   static const String decisionSummarySection = 'decisionSummary';
   static const String economicMoatSection = 'economicMoat';

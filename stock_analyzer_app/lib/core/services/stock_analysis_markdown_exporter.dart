@@ -31,6 +31,10 @@ class StockAnalysisMarkdownExporter {
       buffer,
       data[StockAnalysisStorage.aiAnalysisSummarySection],
     );
+    _writeBusinessOverview(
+      buffer,
+      data[StockAnalysisStorage.businessOverviewSection],
+    );
     _writeReviewStatuses(buffer, data['reviewStatuses']);
     _writeCompetitorStudy(
       buffer,
@@ -111,6 +115,50 @@ class StockAnalysisMarkdownExporter {
 
     for (final entry in statuses.entries) {
       _writeBullet(buffer, entry.key, _humanizeStatus('${entry.value}'));
+    }
+
+    buffer.writeln();
+  }
+
+  static void _writeBusinessOverview(StringBuffer buffer, Object? value) {
+    final data = _asMap(value);
+    if (data == null) {
+      return;
+    }
+
+    buffer
+      ..writeln('## Business Overview')
+      ..writeln();
+
+    _writeBullet(buffer, 'Business Quality', data['qualityLabel']);
+    _writeBullet(buffer, 'Quality Score', data['qualityScore']);
+    _writeBullet(buffer, 'Business Model', data['businessModel']);
+    _writeBullet(buffer, 'Revenue Sources', data['revenueSources']);
+    _writeBullet(buffer, 'Main Segment', data['mainSegment']);
+    _writeBullet(buffer, 'Growth Driver', data['growthDriver']);
+    _writeBullet(buffer, 'Earnings Signal', data['earningsSignal']);
+    _writeBullet(buffer, 'Stock Trend', data['stockTrend']);
+
+    final items = data['items'];
+    if (items is List && items.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('### Business Quality Checklist')
+        ..writeln();
+
+      for (final item in items.whereType<Map<String, dynamic>>()) {
+        final mark = item['isChecked'] == true ? 'x' : ' ';
+        buffer.writeln('- [$mark] ${item['title'] ?? 'Checklist item'}');
+      }
+    }
+
+    final rawResearch = '${data['rawResearch'] ?? ''}'.trim();
+    if (rawResearch.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('### Raw Research')
+        ..writeln()
+        ..writeln(rawResearch);
     }
 
     buffer.writeln();
