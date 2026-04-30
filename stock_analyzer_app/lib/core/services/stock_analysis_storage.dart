@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:stock_analyzer_app/features/stock_analyzer/domain/analysis_section_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 class SavedTickerSummary {
@@ -113,6 +114,9 @@ class StockAnalysisStorage {
           '${decoded['ticker'] ?? key.substring(_keyPrefix.length + 1)}'
               .toUpperCase();
       final decisionSummary = decoded[decisionSummarySection];
+      final summary = decisionSummary is Map<String, dynamic>
+          ? DecisionSummary.fromJson(decisionSummary)
+          : null;
       final reviewStatuses = decoded[_reviewStatusesKey];
       final completedSections = reviewStatuses is Map<String, dynamic>
           ? reviewStatuses.values.where((status) => status == 'complete').length
@@ -122,12 +126,8 @@ class StockAnalysisStorage {
         SavedTickerSummary(
           ticker: ticker,
           updatedAt: DateTime.tryParse('${decoded['updatedAt'] ?? ''}'),
-          finalAction: decisionSummary is Map<String, dynamic>
-              ? '${decisionSummary['finalAction'] ?? 'Watchlist'}'
-              : 'Watchlist',
-          riskLevel: decisionSummary is Map<String, dynamic>
-              ? '${decisionSummary['riskLevel'] ?? 'Medium'}'
-              : 'Medium',
+          finalAction: summary?.finalAction ?? 'Watchlist',
+          riskLevel: summary?.riskLevel ?? 'Medium',
           completedSections: completedSections,
           totalSections: analysisSectionCount,
         ),

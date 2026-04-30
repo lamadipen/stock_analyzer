@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/domain/analysis_section_models.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
@@ -49,20 +50,34 @@ class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
       return;
     }
 
+    final marginOfSafety = MarginOfSafety.fromJson(data);
+
     _isRestoring = true;
     _disposeRows();
     _buyPoints
       ..clear()
-      ..addAll(_buyPointsFromJson(data['buyPoints']));
+      ..addAll(
+        marginOfSafety.buyPoints.map((buyPoint) {
+          return _createBuyPointRow(
+            dateCreated: buyPoint.dateCreated,
+            buyPoint: buyPoint.buyPoint,
+            targetPrice: buyPoint.targetPrice,
+          );
+        }),
+      );
     _referenceLinks
       ..clear()
-      ..addAll(_referenceLinksFromJson(data['referenceLinks']));
+      ..addAll(
+        marginOfSafety.referenceLinks.map((link) {
+          return _createReferenceLinkRow(label: link.label, url: link.url);
+        }),
+      );
 
     setState(() {
-      _isGreatEntry = data['isGreatEntry'] == true;
+      _isGreatEntry = marginOfSafety.isGreatEntry;
       _hasSavedData = true;
       _isLoading = false;
-      _lastSavedAt = DateTime.tryParse('${data['savedAt'] ?? ''}');
+      _lastSavedAt = marginOfSafety.savedAt;
     });
     _isRestoring = false;
   }
@@ -97,33 +112,6 @@ class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
       );
   }
 
-  List<_BuyPointRow> _buyPointsFromJson(Object? value) {
-    if (value is! List) {
-      return [];
-    }
-
-    return value.whereType<Map<String, dynamic>>().map((item) {
-      return _createBuyPointRow(
-        dateCreated: '${item['dateCreated'] ?? ''}',
-        buyPoint: '${item['buyPoint'] ?? ''}',
-        targetPrice: '${item['targetPrice'] ?? ''}',
-      );
-    }).toList();
-  }
-
-  List<_ReferenceLinkRow> _referenceLinksFromJson(Object? value) {
-    if (value is! List) {
-      return [];
-    }
-
-    return value.whereType<Map<String, dynamic>>().map((item) {
-      return _createReferenceLinkRow(
-        label: '${item['label'] ?? ''}',
-        url: '${item['url'] ?? ''}',
-      );
-    }).toList();
-  }
-
   _BuyPointRow _createBuyPointRow({
     String dateCreated = '',
     String buyPoint = '',
@@ -153,25 +141,24 @@ class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
     return row;
   }
 
-  Map<String, dynamic> _toJson() {
-    final savedAt = DateTime.now();
-    return {
-      'isGreatEntry': _isGreatEntry,
-      'savedAt': savedAt.toIso8601String(),
-      'buyPoints': _buyPoints.map((row) {
-        return {
-          'dateCreated': row.dateController.text,
-          'buyPoint': row.buyPointController.text,
-          'targetPrice': row.targetPriceController.text,
-        };
+  MarginOfSafety _toModel(DateTime savedAt) {
+    return MarginOfSafety(
+      savedAt: savedAt,
+      isGreatEntry: _isGreatEntry,
+      buyPoints: _buyPoints.map((row) {
+        return BuyPoint(
+          dateCreated: row.dateController.text,
+          buyPoint: row.buyPointController.text,
+          targetPrice: row.targetPriceController.text,
+        );
       }).toList(),
-      'referenceLinks': _referenceLinks.map((row) {
-        return {
-          'label': row.labelController.text,
-          'url': row.urlController.text,
-        };
+      referenceLinks: _referenceLinks.map((row) {
+        return AnalysisReferenceLink(
+          label: row.labelController.text,
+          url: row.urlController.text,
+        );
       }).toList(),
-    };
+    );
   }
 
   void _scheduleSave() {
@@ -189,11 +176,11 @@ class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
     }
 
     setState(() => _isSaving = true);
-    final data = _toJson();
+    final marginOfSafety = _toModel(DateTime.now());
     await StockAnalysisStorage.saveSection(
       ticker: widget.ticker,
       section: StockAnalysisStorage.marginOfSafetySection,
-      data: data,
+      data: marginOfSafety.toJson(),
     );
 
     if (!mounted) {
@@ -203,7 +190,7 @@ class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
     setState(() {
       _isSaving = false;
       _hasSavedData = true;
-      _lastSavedAt = DateTime.tryParse('${data['savedAt']}');
+      _lastSavedAt = marginOfSafety.savedAt;
     });
   }
 

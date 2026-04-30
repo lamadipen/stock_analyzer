@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/domain/analysis_section_models.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
@@ -101,21 +102,18 @@ class _CompetitorStudyContentState extends State<CompetitorStudyContent> {
       return;
     }
 
-    final savedParameters = data['parameters'];
-    if (savedParameters is List) {
-      final savedByTitle = <String, Map<String, dynamic>>{};
-      for (final parameter
-          in savedParameters.whereType<Map<String, dynamic>>()) {
-        savedByTitle['${parameter['title']}'] = parameter;
+    final study = CompetitorStudy.fromJson(data);
+    if (study.parameters.isNotEmpty) {
+      final savedByTitle = <String, CompetitorStudyParameter>{};
+      for (final parameter in study.parameters) {
+        savedByTitle[parameter.title] = parameter;
       }
 
       for (var i = 0; i < _parameters.length; i++) {
         final saved = savedByTitle[_parameters[i].title];
         if (saved != null) {
-          _parameters[i] = _parameters[i].copyWith(
-            isChecked: saved['isChecked'] == true,
-          );
-          _parameters[i].controller.text = '${saved['note'] ?? ''}';
+          _parameters[i] = _parameters[i].copyWith(isChecked: saved.isChecked);
+          _parameters[i].controller.text = saved.note;
         }
       }
     }
@@ -123,7 +121,7 @@ class _CompetitorStudyContentState extends State<CompetitorStudyContent> {
     setState(() {
       _isLoading = false;
       _hasSavedData = true;
-      _lastSavedAt = DateTime.tryParse('${data['savedAt'] ?? ''}');
+      _lastSavedAt = study.savedAt;
     });
   }
 
@@ -142,16 +140,16 @@ class _CompetitorStudyContentState extends State<CompetitorStudyContent> {
     await StockAnalysisStorage.saveSection(
       ticker: widget.ticker,
       section: StockAnalysisStorage.competitorStudySection,
-      data: {
-        'savedAt': savedAt.toIso8601String(),
-        'parameters': _parameters.map((parameter) {
-          return {
-            'title': parameter.title,
-            'isChecked': parameter.isChecked,
-            'note': parameter.controller.text,
-          };
+      data: CompetitorStudy(
+        savedAt: savedAt,
+        parameters: _parameters.map((parameter) {
+          return CompetitorStudyParameter(
+            title: parameter.title,
+            isChecked: parameter.isChecked,
+            note: parameter.controller.text,
+          );
         }).toList(),
-      },
+      ).toJson(),
     );
 
     if (!mounted) {

@@ -1,52 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/domain/analysis_section_models.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/domain/sale_target_calculator.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
-
-class SaleTarget {
-  SaleTarget({
-    required this.title,
-    required this.startDate,
-    required this.principal,
-    required this.growthRatePercent,
-    required this.years,
-  });
-
-  final String title;
-  final DateTime startDate;
-  final double principal;
-  final double growthRatePercent;
-  final int years;
-
-  double get targetPrice => SaleTargetCalculator.calculateTargetPrice(
-    principal: principal,
-    growthRatePercent: growthRatePercent,
-    years: years,
-  );
-
-  DateTime get maturityDate => SaleTargetCalculator.calculateMaturityDate(
-    startDate: startDate,
-    years: years,
-  );
-
-  SaleTarget copyWith({
-    String? title,
-    DateTime? startDate,
-    double? principal,
-    double? growthRatePercent,
-    int? years,
-  }) {
-    return SaleTarget(
-      title: title ?? this.title,
-      startDate: startDate ?? this.startDate,
-      principal: principal ?? this.principal,
-      growthRatePercent: growthRatePercent ?? this.growthRatePercent,
-      years: years ?? this.years,
-    );
-  }
-}
 
 class SaleTargetContent extends StatefulWidget {
   final String ticker;
@@ -111,30 +69,17 @@ class _SaleTargetContentState extends State<SaleTargetContent> {
       return;
     }
 
-    final targets = data['targets'];
-    if (targets is List) {
+    final section = SaleTargetSection.fromJson(data);
+    if (section.targets.isNotEmpty) {
       _targets
         ..clear()
-        ..addAll(
-          targets.whereType<Map<String, dynamic>>().map((target) {
-            return SaleTarget(
-              title: '${target['title'] ?? ''}',
-              startDate:
-                  DateTime.tryParse('${target['startDate'] ?? ''}') ??
-                  DateTime.now(),
-              principal: double.tryParse('${target['principal'] ?? ''}') ?? 0,
-              growthRatePercent:
-                  double.tryParse('${target['growthRatePercent'] ?? ''}') ?? 0,
-              years: int.tryParse('${target['years'] ?? ''}') ?? 1,
-            );
-          }),
-        );
+        ..addAll(section.targets);
     }
 
     setState(() {
       _isLoading = false;
       _hasSavedData = true;
-      _lastSavedAt = DateTime.tryParse('${data['savedAt'] ?? ''}');
+      _lastSavedAt = section.savedAt;
     });
   }
 
@@ -144,18 +89,7 @@ class _SaleTargetContentState extends State<SaleTargetContent> {
     await StockAnalysisStorage.saveSection(
       ticker: widget.ticker,
       section: StockAnalysisStorage.saleTargetSection,
-      data: {
-        'savedAt': savedAt.toIso8601String(),
-        'targets': _targets.map((target) {
-          return {
-            'title': target.title,
-            'startDate': target.startDate.toIso8601String(),
-            'principal': target.principal,
-            'growthRatePercent': target.growthRatePercent,
-            'years': target.years,
-          };
-        }).toList(),
-      },
+      data: SaleTargetSection(savedAt: savedAt, targets: _targets).toJson(),
     );
 
     if (!mounted) {

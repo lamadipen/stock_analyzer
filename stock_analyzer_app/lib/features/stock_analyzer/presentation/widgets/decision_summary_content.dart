@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/domain/analysis_section_models.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
@@ -67,29 +68,31 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
       return;
     }
 
+    final summary = DecisionSummary.fromJson(data);
+
     _businessQuality = _readOption(
-      data['businessQuality'],
+      summary.businessQuality,
       _businessQualityOptions,
       _businessQuality,
     );
-    _valuation = _readOption(data['valuation'], _valuationOptions, _valuation);
+    _valuation = _readOption(summary.valuation, _valuationOptions, _valuation);
     _entryPoint = _readOption(
-      data['entryPoint'],
+      summary.entryPoint,
       _entryPointOptions,
       _entryPoint,
     );
-    _riskLevel = _readOption(data['riskLevel'], _riskLevelOptions, _riskLevel);
+    _riskLevel = _readOption(summary.riskLevel, _riskLevelOptions, _riskLevel);
     _finalAction = _readOption(
-      data['finalAction'],
+      summary.finalAction,
       _finalActionOptions,
       _finalAction,
     );
-    _notesController.text = '${data['notes'] ?? ''}';
+    _notesController.text = summary.notes;
 
     setState(() {
       _isLoading = false;
       _hasSavedData = true;
-      _lastSavedAt = DateTime.tryParse('${data['savedAt'] ?? ''}');
+      _lastSavedAt = summary.savedAt;
     });
   }
 
@@ -115,15 +118,15 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
     await StockAnalysisStorage.saveSection(
       ticker: widget.ticker,
       section: StockAnalysisStorage.decisionSummarySection,
-      data: {
-        'savedAt': savedAt.toIso8601String(),
-        'businessQuality': _businessQuality,
-        'valuation': _valuation,
-        'entryPoint': _entryPoint,
-        'riskLevel': _riskLevel,
-        'finalAction': _finalAction,
-        'notes': _notesController.text,
-      },
+      data: DecisionSummary(
+        savedAt: savedAt,
+        businessQuality: _businessQuality,
+        valuation: _valuation,
+        entryPoint: _entryPoint,
+        riskLevel: _riskLevel,
+        finalAction: _finalAction,
+        notes: _notesController.text,
+      ).toJson(),
     );
 
     if (!mounted) {

@@ -1,4 +1,5 @@
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/domain/analysis_section_models.dart';
 
 class StockAnalysisMarkdownExporter {
   const StockAnalysisMarkdownExporter._();
@@ -66,13 +67,14 @@ class StockAnalysisMarkdownExporter {
         ..writeln();
       return;
     }
+    final summary = DecisionSummary.fromJson(data);
 
-    _writeBullet(buffer, 'Business Quality', data['businessQuality']);
-    _writeBullet(buffer, 'Valuation', data['valuation']);
-    _writeBullet(buffer, 'Entry Point', data['entryPoint']);
-    _writeBullet(buffer, 'Risk Level', data['riskLevel']);
-    _writeBullet(buffer, 'Final Action', data['finalAction']);
-    final notes = '${data['notes'] ?? ''}'.trim();
+    _writeBullet(buffer, 'Business Quality', summary.businessQuality);
+    _writeBullet(buffer, 'Valuation', summary.valuation);
+    _writeBullet(buffer, 'Entry Point', summary.entryPoint);
+    _writeBullet(buffer, 'Risk Level', summary.riskLevel);
+    _writeBullet(buffer, 'Final Action', summary.finalAction);
+    final notes = summary.notes.trim();
     if (notes.isNotEmpty) {
       buffer
         ..writeln()
@@ -170,8 +172,8 @@ class StockAnalysisMarkdownExporter {
       return;
     }
 
-    final parameters = data['parameters'];
-    if (parameters is! List || parameters.isEmpty) {
+    final study = CompetitorStudy.fromJson(data);
+    if (study.parameters.isEmpty) {
       return;
     }
 
@@ -179,11 +181,11 @@ class StockAnalysisMarkdownExporter {
       ..writeln('## Competitor Study')
       ..writeln();
 
-    for (final item in parameters.whereType<Map<String, dynamic>>()) {
-      final checked = item['isChecked'] == true ? 'Yes' : 'No';
-      final note = '${item['note'] ?? ''}'.trim();
+    for (final item in study.parameters) {
+      final checked = item.isChecked ? 'Yes' : 'No';
+      final note = item.note.trim();
       buffer.writeln(
-        '- ${item['title'] ?? 'Parameter'}: $checked${note.isEmpty ? '' : ' - $note'}',
+        '- ${item.title.isEmpty ? 'Parameter' : item.title}: $checked${note.isEmpty ? '' : ' - $note'}',
       );
     }
 
@@ -241,6 +243,7 @@ class StockAnalysisMarkdownExporter {
     if (data == null) {
       return;
     }
+    final marginOfSafety = MarginOfSafety.fromJson(data);
 
     buffer
       ..writeln('## Margin of Safety')
@@ -249,33 +252,31 @@ class StockAnalysisMarkdownExporter {
     _writeBullet(
       buffer,
       'Great point of entry',
-      data['isGreatEntry'] == true ? 'Yes' : 'No',
+      marginOfSafety.isGreatEntry ? 'Yes' : 'No',
     );
 
-    final buyPoints = data['buyPoints'];
-    if (buyPoints is List && buyPoints.isNotEmpty) {
+    if (marginOfSafety.buyPoints.isNotEmpty) {
       buffer
         ..writeln()
         ..writeln('### Buy Points')
         ..writeln();
 
-      for (final item in buyPoints.whereType<Map<String, dynamic>>()) {
+      for (final item in marginOfSafety.buyPoints) {
         buffer.writeln(
-          '- ${item['buyPoint'] ?? 'Buy point'}: target ${item['targetPrice'] ?? ''}, created ${item['dateCreated'] ?? ''}',
+          '- ${item.buyPoint.isEmpty ? 'Buy point' : item.buyPoint}: target ${item.targetPrice}, created ${item.dateCreated}',
         );
       }
     }
 
-    final referenceLinks = data['referenceLinks'];
-    if (referenceLinks is List && referenceLinks.isNotEmpty) {
+    if (marginOfSafety.referenceLinks.isNotEmpty) {
       buffer
         ..writeln()
         ..writeln('### References')
         ..writeln();
 
-      for (final item in referenceLinks.whereType<Map<String, dynamic>>()) {
-        final label = '${item['label'] ?? 'Reference'}'.trim();
-        final url = '${item['url'] ?? ''}'.trim();
+      for (final item in marginOfSafety.referenceLinks) {
+        final label = item.label.trim().isEmpty ? 'Reference' : item.label;
+        final url = item.url.trim();
         if (url.isEmpty) {
           buffer.writeln('- $label');
         } else {
@@ -293,8 +294,8 @@ class StockAnalysisMarkdownExporter {
       return;
     }
 
-    final targets = data['targets'];
-    if (targets is! List || targets.isEmpty) {
+    final section = SaleTargetSection.fromJson(data);
+    if (section.targets.isEmpty) {
       return;
     }
 
@@ -302,16 +303,12 @@ class StockAnalysisMarkdownExporter {
       ..writeln('## Sale Targets')
       ..writeln();
 
-    for (final item in targets.whereType<Map<String, dynamic>>()) {
-      _writeBullet(buffer, 'Title', item['title']);
-      _writeBullet(buffer, 'Start Date', _formatStoredDate(item['startDate']));
-      _writeBullet(buffer, 'Principal', item['principal']);
-      _writeBullet(
-        buffer,
-        'Growth Rate',
-        '${item['growthRatePercent'] ?? ''}%',
-      );
-      _writeBullet(buffer, 'Years', item['years']);
+    for (final item in section.targets) {
+      _writeBullet(buffer, 'Title', item.title);
+      _writeBullet(buffer, 'Start Date', _formatStoredDate(item.startDate));
+      _writeBullet(buffer, 'Principal', item.principal);
+      _writeBullet(buffer, 'Growth Rate', '${item.growthRatePercent}%');
+      _writeBullet(buffer, 'Years', item.years);
       buffer.writeln();
     }
   }
