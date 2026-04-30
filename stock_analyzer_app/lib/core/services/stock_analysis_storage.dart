@@ -32,6 +32,7 @@ class SavedTickerSummary {
 class StockAnalysisStorage {
   const StockAnalysisStorage._();
 
+  static const int backupSchemaVersion = 1;
   static const String aiAnalysisSummarySection = 'aiAnalysisSummary';
   static const String businessOverviewSection = 'businessOverview';
   static const String competitorStudySection = 'competitorStudy';
@@ -89,6 +90,67 @@ class StockAnalysisStorage {
     required String ticker,
   }) async {
     return _loadTickerData(ticker);
+  }
+
+  static Future<String> exportAllDataJson() async {
+    final prefs = await SharedPreferences.getInstance();
+    final data = <String, dynamic>{};
+
+    for (final key in prefs.getKeys()) {
+      if (!key.startsWith('${_keyPrefix}_')) {
+        continue;
+      }
+
+      final rawData = prefs.getString(key);
+      if (rawData == null) {
+        continue;
+      }
+
+      try {
+        data[key] = jsonDecode(rawData);
+      } catch (_) {
+        data[key] = rawData;
+      }
+    }
+
+    return const JsonEncoder.withIndent('  ').convert({
+      'schemaVersion': backupSchemaVersion,
+      'exportedAt': DateTime.now().toIso8601String(),
+      'app': 'stock_analyzer_app',
+      'data': data,
+    });
+  }
+
+  static Future<int> importAllDataJson(String jsonText) async {
+    final decoded = jsonDecode(jsonText);
+    if (decoded is! Map<String, dynamic>) {
+      throw const StockAnalysisImportException(
+        'Backup JSON must be an object.',
+      );
+    }
+
+    final data = decoded['data'];
+    if (data is! Map<String, dynamic>) {
+      throw const StockAnalysisImportException(
+        'Backup JSON must contain a data object.',
+      );
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    var importedCount = 0;
+
+    for (final entry in data.entries) {
+      if (!entry.key.startsWith('${_keyPrefix}_')) {
+        continue;
+      }
+
+      final value = entry.value;
+      final encoded = value is String ? value : jsonEncode(value);
+      await prefs.setString(entry.key, encoded);
+      importedCount++;
+    }
+
+    return importedCount;
   }
 
   static Future<List<SavedTickerSummary>> loadSavedTickerSummaries() async {
@@ -195,4 +257,13 @@ class StockAnalysisStorage {
   static String _keyFor(String ticker) {
     return '${_keyPrefix}_${ticker.toUpperCase()}';
   }
+}
+
+class StockAnalysisImportException implements Exception {
+  const StockAnalysisImportException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }

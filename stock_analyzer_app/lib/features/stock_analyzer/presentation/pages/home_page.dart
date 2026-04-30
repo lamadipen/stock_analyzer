@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/analysis_results_view.dart';
@@ -100,6 +101,179 @@ class _HomePageState extends State<HomePage> {
     }
   }
 
+  Future<void> _showBackupDialog() async {
+    final backupJson = await StockAnalysisStorage.exportAllDataJson();
+
+    if (!mounted) {
+      return;
+    }
+
+    await showDialog<void>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Backup App Data'),
+          content: SizedBox(
+            width: 720,
+            height: 520,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                border: Border.all(color: Colors.blueGrey.shade100),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(12),
+                child: SelectableText(
+                  backupJson,
+                  style: const TextStyle(fontFamily: 'monospace'),
+                ),
+              ),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(dialogContext),
+              child: const Text('Close'),
+            ),
+            FilledButton.icon(
+              onPressed: () async {
+                await Clipboard.setData(ClipboardData(text: backupJson));
+                if (!dialogContext.mounted) {
+                  return;
+                }
+                ScaffoldMessenger.of(dialogContext).showSnackBar(
+                  const SnackBar(content: Text('Backup JSON copied')),
+                );
+              },
+              icon: const Icon(Icons.copy),
+              label: const Text('Copy JSON'),
+            ),
+          ],
+        );
+      },
+    );
+  }
+
+  Future<void> _showImportDialog() async {
+    final controller = TextEditingController();
+    String? errorMessage;
+    var isImporting = false;
+
+    final importedCount = await showDialog<int>(
+      context: context,
+      builder: (dialogContext) {
+        return StatefulBuilder(
+          builder: (context, setDialogState) {
+            Future<void> importJson() async {
+              final jsonText = controller.text.trim();
+              if (jsonText.isEmpty) {
+                setDialogState(() {
+                  errorMessage = 'Paste backup JSON before importing.';
+                });
+                return;
+              }
+
+              setDialogState(() {
+                isImporting = true;
+                errorMessage = null;
+              });
+
+              try {
+                final count = await StockAnalysisStorage.importAllDataJson(
+                  jsonText,
+                );
+                if (!dialogContext.mounted) {
+                  return;
+                }
+                Navigator.pop(dialogContext, count);
+              } on FormatException catch (error) {
+                setDialogState(() {
+                  isImporting = false;
+                  errorMessage = 'Invalid JSON: ${error.message}';
+                });
+              } on StockAnalysisImportException catch (error) {
+                setDialogState(() {
+                  isImporting = false;
+                  errorMessage = error.message;
+                });
+              }
+            }
+
+            return AlertDialog(
+              title: const Text('Import Backup JSON'),
+              content: SizedBox(
+                width: 720,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    TextField(
+                      controller: controller,
+                      minLines: 10,
+                      maxLines: 18,
+                      enabled: !isImporting,
+                      decoration: const InputDecoration(
+                        labelText: 'Backup JSON',
+                        hintText: 'Paste exported app backup JSON here.',
+                        border: OutlineInputBorder(),
+                        alignLabelWithHint: true,
+                      ),
+                    ),
+                    if (errorMessage != null) ...[
+                      const SizedBox(height: 12),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          errorMessage!,
+                          style: TextStyle(
+                            color: Theme.of(context).colorScheme.error,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: isImporting
+                      ? null
+                      : () => Navigator.pop(dialogContext),
+                  child: const Text('Cancel'),
+                ),
+                FilledButton.icon(
+                  onPressed: isImporting ? null : importJson,
+                  icon: isImporting
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.upload_file),
+                  label: Text(isImporting ? 'Importing...' : 'Import'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+
+    controller.dispose();
+
+    if (importedCount == null || !mounted) {
+      return;
+    }
+
+    setState(() {
+      _showResults = false;
+      _savedTickersFuture = StockAnalysisStorage.loadSavedTickerSummaries();
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Imported $importedCount saved ticker records')),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -108,6 +282,38 @@ class _HomePageState extends State<HomePage> {
       appBar: AppBar(
         title: const Text('Stock Analyzer'),
         actions: [
+          PopupMenuButton<String>(
+            tooltip: 'Backup and import',
+            icon: const Icon(Icons.storage_outlined),
+            onSelected: (value) {
+              switch (value) {
+                case 'backup':
+                  _showBackupDialog();
+                case 'import':
+                  _showImportDialog();
+              }
+            },
+            itemBuilder: (context) {
+              return const [
+                PopupMenuItem(
+                  value: 'backup',
+                  child: ListTile(
+                    leading: Icon(Icons.download_outlined),
+                    title: Text('Backup JSON'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+                PopupMenuItem(
+                  value: 'import',
+                  child: ListTile(
+                    leading: Icon(Icons.upload_file),
+                    title: Text('Import JSON'),
+                    contentPadding: EdgeInsets.zero,
+                  ),
+                ),
+              ];
+            },
+          ),
           if (_showResults) ...[
             IconButton(
               tooltip: 'Change ticker',

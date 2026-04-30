@@ -42,5 +42,44 @@ void main() {
         );
       },
     );
+
+    test('exports and imports all saved ticker data as JSON backup', () async {
+      await StockAnalysisStorage.saveSection(
+        ticker: 'ADBE',
+        section: StockAnalysisStorage.decisionSummarySection,
+        data: {'finalAction': 'Watchlist', 'riskLevel': 'Medium'},
+      );
+      await StockAnalysisStorage.saveSection(
+        ticker: 'MSFT',
+        section: StockAnalysisStorage.businessOverviewSection,
+        data: {'qualityLabel': 'Strong', 'qualityScore': 5},
+      );
+
+      final backupJson = await StockAnalysisStorage.exportAllDataJson();
+
+      SharedPreferences.setMockInitialValues({});
+      final importedCount = await StockAnalysisStorage.importAllDataJson(
+        backupJson,
+      );
+      final summaries = await StockAnalysisStorage.loadSavedTickerSummaries();
+      final msft = await StockAnalysisStorage.loadSection(
+        ticker: 'MSFT',
+        section: StockAnalysisStorage.businessOverviewSection,
+      );
+
+      expect(importedCount, 2);
+      expect(
+        summaries.map((summary) => summary.ticker),
+        containsAll(['ADBE', 'MSFT']),
+      );
+      expect(msft?['qualityLabel'], 'Strong');
+    });
+
+    test('rejects import JSON without a data object', () {
+      expect(
+        () => StockAnalysisStorage.importAllDataJson('{"schemaVersion":1}'),
+        throwsA(isA<StockAnalysisImportException>()),
+      );
+    });
   });
 }
