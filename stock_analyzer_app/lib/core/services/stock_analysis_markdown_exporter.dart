@@ -198,7 +198,23 @@ class StockAnalysisMarkdownExporter {
     _writeBullet(buffer, 'Main Segment', overview.mainSegment);
     _writeBullet(buffer, 'Growth Driver', overview.growthDriver);
     _writeBullet(buffer, 'Earnings Signal', overview.earningsSignal);
+    _writeBullet(
+      buffer,
+      'Earnings Signal Last Checked',
+      _formatOptionalDateTime(overview.earningsSignalCheckedAt),
+    );
+    _writeBullet(buffer, 'Analyst Rating', overview.analystRating);
+    _writeBullet(
+      buffer,
+      'Analyst Rating Last Checked',
+      _formatOptionalDateTime(overview.analystRatingCheckedAt),
+    );
     _writeBullet(buffer, 'Stock Trend', overview.stockTrend);
+    _writeBullet(
+      buffer,
+      'Stock Trend Last Checked',
+      _formatOptionalDateTime(overview.stockTrendCheckedAt),
+    );
 
     if (overview.items.isNotEmpty) {
       buffer
@@ -219,6 +235,10 @@ class StockAnalysisMarkdownExporter {
       buffer
         ..writeln()
         ..writeln('### Raw Research')
+        ..writeln()
+        ..writeln(
+          '_Last pasted/edited: ${_formatOptionalDateTime(overview.rawResearchPastedAt)}_',
+        )
         ..writeln()
         ..writeln(rawResearch);
     }
@@ -408,5 +428,9 @@ class StockAnalysisMarkdownExporter {
     final time =
         '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
     return '$date $time';
+  }
+
+  static String _formatOptionalDateTime(DateTime? value) {
+    return value == null ? 'Not set' : _formatDateTime(value.toLocal());
   }
 }

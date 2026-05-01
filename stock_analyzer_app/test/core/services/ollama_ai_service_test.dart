@@ -118,7 +118,7 @@ void main() {
           requestBody = request.body;
           return http.Response(r'''
 {
-  "response": "```json\n{\"businessModel\":\"Sells creative software subscriptions\",\"revenueSources\":\"Subscription revenue\",\"mainSegment\":\"Digital Media\",\"growthDriver\":\"AI-assisted creative workflows\",\"earningsSignal\":\"Needs verification: next EPS estimate\",\"stockTrend\":\"Needs verification: 1-year and 5-year chart\"}\n```",
+  "response": "```json\n{\"businessModel\":\"Sells creative software subscriptions\",\"revenueSources\":\"Subscription revenue\",\"mainSegment\":\"Digital Media\",\"growthDriver\":\"AI-assisted creative workflows\",\"earningsSignal\":\"Needs verification: next EPS estimate\",\"analystRating\":\"Needs verification: consensus rating\",\"stockTrend\":\"Needs verification: 1-year and 5-year chart\"}\n```",
   "done": true
 }
 ''', 200);
@@ -135,6 +135,7 @@ void main() {
 
       expect(draft.businessModel, 'Sells creative software subscriptions');
       expect(draft.mainSegment, 'Digital Media');
+      expect(draft.analystRating, 'Needs verification: consensus rating');
       expect(requestBody, contains('Return valid JSON only'));
     });
 

@@ -246,8 +246,27 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
       _noteLine('Revenue sources', businessOverview.revenueSources),
       _noteLine('Main segment', businessOverview.mainSegment),
       _noteLine('Growth driver', businessOverview.growthDriver),
-      _noteLine('Earnings signal', businessOverview.earningsSignal),
-      _noteLine('Stock trend', businessOverview.stockTrend),
+      _noteLine(
+        'Earnings signal',
+        _withFreshness(
+          businessOverview.earningsSignal,
+          businessOverview.earningsSignalCheckedAt,
+        ),
+      ),
+      _noteLine(
+        'Analyst rating',
+        _withFreshness(
+          businessOverview.analystRating,
+          businessOverview.analystRatingCheckedAt,
+        ),
+      ),
+      _noteLine(
+        'Stock trend',
+        _withFreshness(
+          businessOverview.stockTrend,
+          businessOverview.stockTrendCheckedAt,
+        ),
+      ),
       '[/Business Overview]',
     ];
 
@@ -260,6 +279,26 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
       return '';
     }
     return '$label: $text';
+  }
+
+  String _withFreshness(String value, DateTime? checkedAt) {
+    final text = value.trim();
+    if (text.isEmpty) {
+      return '';
+    }
+
+    return '$text (last checked: ${_formatFreshness(checkedAt)})';
+  }
+
+  String _formatFreshness(DateTime? dateTime) {
+    if (dateTime == null) {
+      return 'not marked';
+    }
+
+    final local = dateTime.toLocal();
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    return '${local.year}-${twoDigits(local.month)}-${twoDigits(local.day)} '
+        '${twoDigits(local.hour)}:${twoDigits(local.minute)}';
   }
 
   String _removeExistingBusinessOverviewBlock(String text) {

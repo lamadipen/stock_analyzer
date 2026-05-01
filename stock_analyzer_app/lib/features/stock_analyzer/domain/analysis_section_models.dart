@@ -73,8 +73,13 @@ class BusinessOverview {
     required this.mainSegment,
     required this.growthDriver,
     required this.earningsSignal,
+    required this.analystRating,
     required this.stockTrend,
     required this.rawResearch,
+    required this.earningsSignalCheckedAt,
+    required this.analystRatingCheckedAt,
+    required this.stockTrendCheckedAt,
+    required this.rawResearchPastedAt,
     required this.qualityScore,
     required this.qualityLabel,
     required this.items,
@@ -86,8 +91,13 @@ class BusinessOverview {
   final String mainSegment;
   final String growthDriver;
   final String earningsSignal;
+  final String analystRating;
   final String stockTrend;
   final String rawResearch;
+  final DateTime? earningsSignalCheckedAt;
+  final DateTime? analystRatingCheckedAt;
+  final DateTime? stockTrendCheckedAt;
+  final DateTime? rawResearchPastedAt;
   final int qualityScore;
   final String qualityLabel;
   final List<BusinessOverviewChecklistItem> items;
@@ -107,6 +117,7 @@ class BusinessOverview {
       mainSegment,
       growthDriver,
       earningsSignal,
+      analystRating,
       stockTrend,
     ].any((value) => value.trim().isNotEmpty);
   }
@@ -120,8 +131,21 @@ class BusinessOverview {
       mainSegment: _readString(json['mainSegment']),
       growthDriver: _readString(json['growthDriver']),
       earningsSignal: _readString(json['earningsSignal']),
+      analystRating: _readString(json['analystRating']),
       stockTrend: _readString(json['stockTrend']),
       rawResearch: _readString(json['rawResearch']),
+      earningsSignalCheckedAt: DateTime.tryParse(
+        '${json['earningsSignalCheckedAt'] ?? ''}',
+      ),
+      analystRatingCheckedAt: DateTime.tryParse(
+        '${json['analystRatingCheckedAt'] ?? ''}',
+      ),
+      stockTrendCheckedAt: DateTime.tryParse(
+        '${json['stockTrendCheckedAt'] ?? ''}',
+      ),
+      rawResearchPastedAt: DateTime.tryParse(
+        '${json['rawResearchPastedAt'] ?? ''}',
+      ),
       qualityScore: _readInt(json['qualityScore']),
       qualityLabel: _readString(json['qualityLabel'], fallback: 'Mixed'),
       items: items is List
@@ -141,8 +165,13 @@ class BusinessOverview {
       'mainSegment': mainSegment,
       'growthDriver': growthDriver,
       'earningsSignal': earningsSignal,
+      'analystRating': analystRating,
       'stockTrend': stockTrend,
       'rawResearch': rawResearch,
+      'earningsSignalCheckedAt': earningsSignalCheckedAt?.toIso8601String(),
+      'analystRatingCheckedAt': analystRatingCheckedAt?.toIso8601String(),
+      'stockTrendCheckedAt': stockTrendCheckedAt?.toIso8601String(),
+      'rawResearchPastedAt': rawResearchPastedAt?.toIso8601String(),
       'qualityScore': qualityScore,
       'qualityLabel': qualityLabel,
       'items': items.map((item) => item.toJson()).toList(),

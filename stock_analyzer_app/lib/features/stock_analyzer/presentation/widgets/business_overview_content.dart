@@ -26,6 +26,8 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
   final TextEditingController _growthDriverController = TextEditingController();
   final TextEditingController _earningsSignalController =
       TextEditingController();
+  final TextEditingController _analystRatingController =
+      TextEditingController();
   final TextEditingController _stockTrendController = TextEditingController();
   final TextEditingController _rawResearchController = TextEditingController();
   final TextEditingController _baseUrlController = TextEditingController(
@@ -45,6 +47,10 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
   bool _suspendAutosave = false;
   bool _showReportMode = true;
   DateTime? _lastSavedAt;
+  DateTime? _earningsSignalCheckedAt;
+  DateTime? _analystRatingCheckedAt;
+  DateTime? _stockTrendCheckedAt;
+  DateTime? _rawResearchPastedAt;
   String? _errorMessage;
   late List<_BusinessChecklistItem> _items = _defaultItems();
 
@@ -54,6 +60,10 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     for (final controller in _controllers) {
       controller.addListener(_scheduleSave);
     }
+    _earningsSignalController.addListener(_markEarningsSignalEdited);
+    _analystRatingController.addListener(_markAnalystRatingEdited);
+    _stockTrendController.addListener(_markStockTrendEdited);
+    _rawResearchController.addListener(_markRawResearchEdited);
     _baseUrlController.addListener(_scheduleSave);
     _modelController.addListener(_scheduleSave);
     _loadSavedData();
@@ -65,6 +75,7 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     _mainSegmentController,
     _growthDriverController,
     _earningsSignalController,
+    _analystRatingController,
     _stockTrendController,
     _rawResearchController,
   ];
@@ -125,6 +136,7 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     _mainSegmentController.text = '${data['mainSegment'] ?? ''}';
     _growthDriverController.text = '${data['growthDriver'] ?? ''}';
     _earningsSignalController.text = '${data['earningsSignal'] ?? ''}';
+    _analystRatingController.text = '${data['analystRating'] ?? ''}';
     _stockTrendController.text = '${data['stockTrend'] ?? ''}';
     _rawResearchController.text = '${data['rawResearch'] ?? ''}';
     _provider = AiAnalysisProvider.values.firstWhere(
@@ -152,6 +164,18 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
       _isLoading = false;
       _hasSavedData = true;
       _lastSavedAt = DateTime.tryParse('${data['savedAt'] ?? ''}');
+      _earningsSignalCheckedAt = DateTime.tryParse(
+        '${data['earningsSignalCheckedAt'] ?? ''}',
+      );
+      _analystRatingCheckedAt = DateTime.tryParse(
+        '${data['analystRatingCheckedAt'] ?? ''}',
+      );
+      _stockTrendCheckedAt = DateTime.tryParse(
+        '${data['stockTrendCheckedAt'] ?? ''}',
+      );
+      _rawResearchPastedAt = DateTime.tryParse(
+        '${data['rawResearchPastedAt'] ?? ''}',
+      );
     });
   }
 
@@ -179,8 +203,13 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
         'mainSegment': _mainSegmentController.text.trim(),
         'growthDriver': _growthDriverController.text.trim(),
         'earningsSignal': _earningsSignalController.text.trim(),
+        'analystRating': _analystRatingController.text.trim(),
         'stockTrend': _stockTrendController.text.trim(),
         'rawResearch': _rawResearchController.text.trim(),
+        'earningsSignalCheckedAt': _earningsSignalCheckedAt?.toIso8601String(),
+        'analystRatingCheckedAt': _analystRatingCheckedAt?.toIso8601String(),
+        'stockTrendCheckedAt': _stockTrendCheckedAt?.toIso8601String(),
+        'rawResearchPastedAt': _rawResearchPastedAt?.toIso8601String(),
         'provider': _provider.name,
         'baseUrl': _baseUrlController.text.trim(),
         'model': _modelController.text.trim(),
@@ -248,7 +277,12 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
       _mainSegmentController.text = draft.mainSegment;
       _growthDriverController.text = draft.growthDriver;
       _earningsSignalController.text = draft.earningsSignal;
+      _analystRatingController.text = draft.analystRating;
       _stockTrendController.text = draft.stockTrend;
+      final checkedAt = DateTime.now();
+      _earningsSignalCheckedAt = checkedAt;
+      _analystRatingCheckedAt = checkedAt;
+      _stockTrendCheckedAt = checkedAt;
       _suspendAutosave = false;
 
       await _saveNow();
@@ -286,6 +320,10 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
       _items = _defaultItems();
       _hasSavedData = false;
       _lastSavedAt = null;
+      _earningsSignalCheckedAt = null;
+      _analystRatingCheckedAt = null;
+      _stockTrendCheckedAt = null;
+      _rawResearchPastedAt = null;
       _isSaving = false;
       _errorMessage = null;
     });
@@ -311,6 +349,35 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
       'Weak' => AppNoteTone.risk,
       _ => AppNoteTone.warning,
     };
+  }
+
+  void _markEarningsSignalEdited() {
+    _markFreshnessEdited((value) => _earningsSignalCheckedAt = value);
+  }
+
+  void _markAnalystRatingEdited() {
+    _markFreshnessEdited((value) => _analystRatingCheckedAt = value);
+  }
+
+  void _markStockTrendEdited() {
+    _markFreshnessEdited((value) => _stockTrendCheckedAt = value);
+  }
+
+  void _markRawResearchEdited() {
+    _markFreshnessEdited((value) => _rawResearchPastedAt = value);
+  }
+
+  void _markFreshnessEdited(void Function(DateTime value) setFreshness) {
+    if (_isLoading || _suspendAutosave) {
+      return;
+    }
+
+    setState(() => setFreshness(DateTime.now()));
+  }
+
+  void _markCheckedNow(void Function(DateTime value) setFreshness) {
+    setState(() => setFreshness(DateTime.now()));
+    _scheduleSave();
   }
 
   @override
@@ -482,19 +549,42 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
               ),
               EditableTableRow(
                 label: 'Earnings signal',
-                value: _textField(
+                value: _freshnessField(
                   controller: _earningsSignalController,
                   hintText:
                       'Next earnings date, expected EPS, whisper expectation, recent beats/misses, and expected reaction.',
+                  freshnessAt: _earningsSignalCheckedAt,
+                  freshnessLabel: 'Last checked',
+                  onMarkNow: () => _markCheckedNow(
+                    (value) => _earningsSignalCheckedAt = value,
+                  ),
+                  minLines: 2,
+                ),
+              ),
+              EditableTableRow(
+                label: 'Analyst rating',
+                value: _freshnessField(
+                  controller: _analystRatingController,
+                  hintText:
+                      'Consensus rating, recent upgrades/downgrades, price target changes, and source.',
+                  freshnessAt: _analystRatingCheckedAt,
+                  freshnessLabel: 'Last checked',
+                  onMarkNow: () => _markCheckedNow(
+                    (value) => _analystRatingCheckedAt = value,
+                  ),
                   minLines: 2,
                 ),
               ),
               EditableTableRow(
                 label: 'Stock trend',
-                value: _textField(
+                value: _freshnessField(
                   controller: _stockTrendController,
                   hintText:
                       '1-year, 5-year, and max chart read. Note whether the trend confirms or challenges the thesis.',
+                  freshnessAt: _stockTrendCheckedAt,
+                  freshnessLabel: 'Last checked',
+                  onMarkNow: () =>
+                      _markCheckedNow((value) => _stockTrendCheckedAt = value),
                   minLines: 2,
                 ),
               ),
@@ -556,13 +646,31 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
         ),
         NotionSummaryBullet(
           label: 'Earnings signal',
-          value: _earningsSignalController.text.trim(),
+          value: _withFreshness(
+            _earningsSignalController.text.trim(),
+            _earningsSignalCheckedAt,
+            'Last checked',
+          ),
           icon: Icons.event_available_outlined,
           tone: AppSummaryTone.warning,
         ),
         NotionSummaryBullet(
+          label: 'Analyst rating',
+          value: _withFreshness(
+            _analystRatingController.text.trim(),
+            _analystRatingCheckedAt,
+            'Last checked',
+          ),
+          icon: Icons.insights_outlined,
+          tone: AppSummaryTone.info,
+        ),
+        NotionSummaryBullet(
           label: 'Stock trend',
-          value: _stockTrendController.text.trim(),
+          value: _withFreshness(
+            _stockTrendController.text.trim(),
+            _stockTrendCheckedAt,
+            'Last checked',
+          ),
           icon: Icons.show_chart,
           tone: AppSummaryTone.neutral,
         ),
@@ -587,6 +695,15 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     return checked.isEmpty ? '' : checked.join(', ');
   }
 
+  String _withFreshness(String value, DateTime? dateTime, String label) {
+    final freshness = _formatFreshness(dateTime);
+    if (value.isEmpty) {
+      return freshness == 'Not marked yet' ? '' : '$label: $freshness';
+    }
+
+    return '$value\n$label: $freshness';
+  }
+
   Widget _textField({
     required TextEditingController controller,
     required String hintText,
@@ -604,20 +721,105 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     );
   }
 
-  Widget _rawResearchField() {
-    return TextField(
-      controller: _rawResearchController,
-      minLines: 4,
-      maxLines: 8,
-      decoration: const InputDecoration(
-        labelText: 'Raw Research / Paste Zone',
-        hintText:
-            'Paste company description, StockAnalysis stats, revenue breakdown, or EarningsWhispers notes here.',
-        border: OutlineInputBorder(),
-        alignLabelWithHint: true,
-        prefixIcon: Icon(Icons.content_paste_search),
-      ),
+  Widget _freshnessField({
+    required TextEditingController controller,
+    required String hintText,
+    required DateTime? freshnessAt,
+    required String freshnessLabel,
+    required VoidCallback onMarkNow,
+    int minLines = 1,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(
+              Icons.update,
+              size: 16,
+              color: freshnessAt == null
+                  ? Colors.blueGrey.shade400
+                  : Colors.green.shade700,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                '$freshnessLabel: ${_formatFreshness(freshnessAt)}',
+                style: TextStyle(
+                  color: Colors.blueGrey.shade700,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: onMarkNow,
+              icon: const Icon(Icons.check_circle_outline, size: 18),
+              label: const Text('Checked now'),
+            ),
+          ],
+        ),
+        const SizedBox(height: 6),
+        _textField(
+          controller: controller,
+          hintText: hintText,
+          minLines: minLines,
+        ),
+      ],
     );
+  }
+
+  Widget _rawResearchField() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        TextField(
+          controller: _rawResearchController,
+          minLines: 4,
+          maxLines: 8,
+          decoration: const InputDecoration(
+            labelText: 'Raw Research / Paste Zone',
+            hintText:
+                'Paste company description, StockAnalysis stats, revenue breakdown, or EarningsWhispers notes here.',
+            border: OutlineInputBorder(),
+            alignLabelWithHint: true,
+            prefixIcon: Icon(Icons.content_paste_search),
+          ),
+        ),
+        const SizedBox(height: 6),
+        Row(
+          children: [
+            Icon(
+              Icons.content_paste,
+              size: 16,
+              color: Colors.blueGrey.shade600,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                'Last pasted/edited: ${_formatFreshness(_rawResearchPastedAt)}',
+                style: TextStyle(
+                  color: Colors.blueGrey.shade700,
+                  fontWeight: FontWeight.w600,
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  String _formatFreshness(DateTime? dateTime) {
+    if (dateTime == null) {
+      return 'Not marked yet';
+    }
+
+    final local = dateTime.toLocal();
+    String twoDigits(int value) => value.toString().padLeft(2, '0');
+    return '${local.year}-${twoDigits(local.month)}-${twoDigits(local.day)} '
+        '${twoDigits(local.hour)}:${twoDigits(local.minute)}';
   }
 
   String _defaultModelFor(AiAnalysisProvider provider) {

@@ -380,6 +380,7 @@ Return exactly these JSON keys:
   "mainSegment": "",
   "growthDriver": "",
   "earningsSignal": "",
+  "analystRating": "",
   "stockTrend": ""
 }
 
@@ -398,6 +399,7 @@ class BusinessOverviewDraft {
     required this.mainSegment,
     required this.growthDriver,
     required this.earningsSignal,
+    required this.analystRating,
     required this.stockTrend,
   });
 
@@ -406,6 +408,7 @@ class BusinessOverviewDraft {
   final String mainSegment;
   final String growthDriver;
   final String earningsSignal;
+  final String analystRating;
   final String stockTrend;
 
   factory BusinessOverviewDraft.fromAiResponse(String response) {
@@ -423,6 +426,7 @@ class BusinessOverviewDraft {
       mainSegment: _readString(decoded, 'mainSegment'),
       growthDriver: _readString(decoded, 'growthDriver'),
       earningsSignal: _readString(decoded, 'earningsSignal'),
+      analystRating: _readString(decoded, 'analystRating'),
       stockTrend: _readString(decoded, 'stockTrend'),
     );
   }
