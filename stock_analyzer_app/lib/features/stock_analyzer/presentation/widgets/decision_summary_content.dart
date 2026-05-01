@@ -41,7 +41,9 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
   bool _showReportMode = true;
   DateTime? _lastSavedAt;
   String? _businessOverviewMessage;
+  String? _suggestionsMessage;
   BusinessOverview? _businessOverview;
+  _DecisionSuggestions? _suggestions;
 
   String _businessQuality = 'Watch';
   String _valuation = 'Fair';
@@ -65,6 +67,21 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
       ticker: widget.ticker,
       section: StockAnalysisStorage.businessOverviewSection,
     );
+    final economicMoatData = await StockAnalysisStorage.loadSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.economicMoatSection,
+    );
+    final valuationData = await StockAnalysisStorage.loadSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.valuationMethodSection,
+    );
+    final marginOfSafetyData = await StockAnalysisStorage.loadSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.marginOfSafetySection,
+    );
+    final reviewStatuses = await StockAnalysisStorage.loadReviewStatuses(
+      ticker: widget.ticker,
+    );
 
     if (!mounted) {
       return;
@@ -73,16 +90,24 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
     final businessOverview = businessOverviewData == null
         ? null
         : BusinessOverview.fromJson(businessOverviewData);
+    final suggestions = _buildDecisionSuggestions(
+      businessOverview: businessOverview,
+      economicMoatData: economicMoatData,
+      valuationData: valuationData,
+      marginOfSafetyData: marginOfSafetyData,
+      reviewStatuses: reviewStatuses,
+    );
 
     if (decisionData == null) {
-      if (businessOverview != null) {
-        final note = _buildBusinessOverviewNote(businessOverview);
-        _businessQuality = businessOverview.decisionBusinessQuality;
-        _notesController.text = note;
-      }
+      _applySuggestionValues(suggestions);
+      _notesController.text = _buildSuggestionNotes(
+        suggestions,
+        businessOverview: businessOverview,
+      );
 
       setState(() {
         _businessOverview = businessOverview;
+        _suggestions = suggestions;
         _businessOverviewMessage = businessOverview == null
             ? null
             : 'Auto-loaded Business Overview: ${businessOverview.qualityLabel} mapped to ${businessOverview.decisionBusinessQuality}.';
@@ -114,6 +139,7 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
 
     setState(() {
       _businessOverview = businessOverview;
+      _suggestions = suggestions;
       _businessOverviewMessage = businessOverview == null
           ? null
           : 'Business Overview signal available: ${businessOverview.qualityLabel} maps to ${businessOverview.decisionBusinessQuality}.';
@@ -189,13 +215,50 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
       _lastSavedAt = null;
       _isSaving = false;
       _businessOverviewMessage = null;
+      _suggestionsMessage = null;
       _businessOverview = null;
+      _suggestions = null;
     });
   }
 
   void _setValue(void Function() update) {
     setState(update);
     _scheduleSave();
+  }
+
+  void _applySuggestionValues(_DecisionSuggestions suggestions) {
+    _businessQuality = suggestions.businessQuality.value;
+    _valuation = suggestions.valuation.value;
+    _entryPoint = suggestions.entryPoint.value;
+    _riskLevel = suggestions.riskLevel.value;
+    _finalAction = _finalActionFromSuggestions(suggestions);
+  }
+
+  Future<void> _applyMultiSectionSuggestions() async {
+    final suggestions = _suggestions;
+    if (suggestions == null) {
+      return;
+    }
+
+    final suggestionNotes = _buildSuggestionNotes(
+      suggestions,
+      businessOverview: _businessOverview,
+    );
+    final currentNotes = _removeExistingSuggestionsBlock(
+      _removeExistingBusinessOverviewBlock(_notesController.text),
+    ).trim();
+
+    setState(() {
+      _applySuggestionValues(suggestions);
+      _notesController.text = [
+        suggestionNotes,
+        if (currentNotes.isNotEmpty) currentNotes,
+      ].join('\n\n');
+      _suggestionsMessage =
+          'Applied multi-section suggestions. You can still override each field manually.';
+    });
+
+    await _saveNow();
   }
 
   Future<void> _applyBusinessOverview() async {
@@ -236,6 +299,204 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
     });
 
     await _saveNow();
+  }
+
+  _DecisionSuggestions _buildDecisionSuggestions({
+    required BusinessOverview? businessOverview,
+    required Map<String, dynamic>? economicMoatData,
+    required Map<String, dynamic>? valuationData,
+    required Map<String, dynamic>? marginOfSafetyData,
+    required Map<String, String> reviewStatuses,
+  }) {
+    final moatStatus = reviewStatuses['Economic Moat'] ?? 'notStarted';
+    final valuationStatus = reviewStatuses['Valuation Method'] ?? 'notStarted';
+    final risksStatus = reviewStatuses['Investment Risks'] ?? 'notStarted';
+    final moatCheckedCount = _checkedItemCount(economicMoatData?['items']);
+    final moatTotalCount = _listCount(economicMoatData?['items']);
+    final valuationCheckedCount = _checkedItemCount(valuationData?['checked']);
+    final marginOfSafety = marginOfSafetyData == null
+        ? null
+        : MarginOfSafety.fromJson(marginOfSafetyData);
+
+    final moatIsComplete = moatStatus == 'complete';
+    final moatIsFavorable = moatCheckedCount >= 4;
+    final valuationIsComplete = valuationStatus == 'complete';
+    final valuationIsSupported = valuationCheckedCount > 0;
+    final marginIsGood = marginOfSafety?.isGreatEntry == true;
+    final risksComplete = risksStatus == 'complete';
+
+    final businessQuality = businessOverview != null
+        ? _DecisionSuggestion(
+            value: businessOverview.decisionBusinessQuality,
+            reason:
+                'Business Overview is ${businessOverview.qualityLabel}; mapped from its section score.',
+          )
+        : moatIsComplete && moatIsFavorable
+        ? _DecisionSuggestion(
+            value: 'Pass',
+            reason:
+                'Economic Moat is complete with $moatCheckedCount/$moatTotalCount moat signals checked.',
+          )
+        : moatIsComplete
+        ? _DecisionSuggestion(
+            value: moatCheckedCount <= 1 ? 'Fail' : 'Watch',
+            reason:
+                'Economic Moat is complete but only $moatCheckedCount/$moatTotalCount moat signals are checked.',
+          )
+        : _DecisionSuggestion(
+            value: 'Watch',
+            reason: 'Economic Moat is not marked complete yet.',
+          );
+
+    final valuation = valuationIsComplete && valuationIsSupported
+        ? _DecisionSuggestion(
+            value: 'Attractive',
+            reason:
+                'Valuation Method is complete with $valuationCheckedCount method signal(s) selected.',
+          )
+        : valuationIsComplete
+        ? const _DecisionSuggestion(
+            value: 'Fair',
+            reason:
+                'Valuation Method is complete, but no valuation method is selected.',
+          )
+        : const _DecisionSuggestion(
+            value: 'Fair',
+            reason: 'Valuation Method is not marked complete yet.',
+          );
+
+    final entryPoint = valuation.value == 'Attractive' && marginIsGood
+        ? const _DecisionSuggestion(
+            value: 'Good',
+            reason:
+                'Valuation is attractive and Margin of Safety confirms a great entry.',
+          )
+        : _DecisionSuggestion(
+            value: 'Wait',
+            reason: marginIsGood
+                ? 'Margin of Safety is favorable, but valuation is not attractive yet.'
+                : 'Margin of Safety has not confirmed a great entry.',
+          );
+
+    final riskLevel = !risksComplete
+        ? _DecisionSuggestion(
+            value: 'High',
+            reason:
+                'Investment Risks is ${_humanizeStatus(risksStatus)}, so unresolved risk remains high.',
+          )
+        : const _DecisionSuggestion(
+            value: 'Medium',
+            reason:
+                'Investment Risks is complete. Keep Medium unless the risk review supports Low or High.',
+          );
+
+    return _DecisionSuggestions(
+      businessQuality: businessQuality,
+      valuation: valuation,
+      entryPoint: entryPoint,
+      riskLevel: riskLevel,
+      finalAction: _DecisionSuggestion(
+        value: _finalActionFor(
+          businessQuality.value,
+          valuation.value,
+          entryPoint.value,
+          riskLevel.value,
+        ),
+        reason: 'Derived from the four suggested decision fields.',
+      ),
+    );
+  }
+
+  int _checkedItemCount(Object? value) {
+    if (value is List<bool>) {
+      return value.where((item) => item).length;
+    }
+    if (value is List) {
+      return value.where((item) {
+        if (item is bool) {
+          return item;
+        }
+        if (item is Map<String, dynamic>) {
+          return item['isChecked'] == true;
+        }
+        return false;
+      }).length;
+    }
+    return 0;
+  }
+
+  int _listCount(Object? value) {
+    return value is List ? value.length : 0;
+  }
+
+  String _finalActionFromSuggestions(_DecisionSuggestions suggestions) {
+    return _finalActionFor(
+      suggestions.businessQuality.value,
+      suggestions.valuation.value,
+      suggestions.entryPoint.value,
+      suggestions.riskLevel.value,
+    );
+  }
+
+  String _finalActionFor(
+    String businessQuality,
+    String valuation,
+    String entryPoint,
+    String riskLevel,
+  ) {
+    if (businessQuality == 'Fail' || riskLevel == 'High') {
+      return 'Avoid';
+    }
+    if (businessQuality == 'Pass' &&
+        valuation == 'Attractive' &&
+        entryPoint == 'Good' &&
+        riskLevel != 'High') {
+      return 'Buy Zone';
+    }
+    return 'Watchlist';
+  }
+
+  String _humanizeStatus(String value) {
+    return switch (value) {
+      'notStarted' => 'not started',
+      'inReview' => 'in review',
+      'complete' => 'complete',
+      _ => value,
+    };
+  }
+
+  String _buildSuggestionNotes(
+    _DecisionSuggestions suggestions, {
+    required BusinessOverview? businessOverview,
+  }) {
+    final lines = <String>[
+      '[Decision Suggestions]',
+      _noteLine(
+        'Business quality suggestion',
+        '${suggestions.businessQuality.value} - ${suggestions.businessQuality.reason}',
+      ),
+      _noteLine(
+        'Valuation suggestion',
+        '${suggestions.valuation.value} - ${suggestions.valuation.reason}',
+      ),
+      _noteLine(
+        'Entry point suggestion',
+        '${suggestions.entryPoint.value} - ${suggestions.entryPoint.reason}',
+      ),
+      _noteLine(
+        'Risk level suggestion',
+        '${suggestions.riskLevel.value} - ${suggestions.riskLevel.reason}',
+      ),
+      _noteLine(
+        'Final action suggestion',
+        '${suggestions.finalAction.value} - ${suggestions.finalAction.reason}',
+      ),
+      '[/Decision Suggestions]',
+      if (businessOverview != null)
+        _buildBusinessOverviewNote(businessOverview),
+    ];
+
+    return lines.where((line) => line.trim().isNotEmpty).join('\n');
   }
 
   String _buildBusinessOverviewNote(BusinessOverview businessOverview) {
@@ -305,6 +566,17 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
     return text
         .replaceAll(
           RegExp(r'\n*\[Business Overview\][\s\S]*?\[/Business Overview\]\n*'),
+          '\n',
+        )
+        .trim();
+  }
+
+  String _removeExistingSuggestionsBlock(String text) {
+    return text
+        .replaceAll(
+          RegExp(
+            r'\n*\[Decision Suggestions\][\s\S]*?\[/Decision Suggestions\]\n*',
+          ),
           '\n',
         )
         .trim();
@@ -385,12 +657,32 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
             runSpacing: 8,
             children: [
               OutlinedButton.icon(
+                onPressed: _suggestions == null
+                    ? null
+                    : _applyMultiSectionSuggestions,
+                icon: const Icon(Icons.auto_awesome),
+                label: const Text('Apply Suggestions'),
+              ),
+              OutlinedButton.icon(
                 onPressed: _applyBusinessOverview,
                 icon: const Icon(Icons.account_tree_outlined),
                 label: const Text('Refresh Business Overview'),
               ),
             ],
           ),
+          if (_suggestions != null) ...[
+            const SizedBox(height: 12),
+            _SuggestionPanel(suggestions: _suggestions!),
+          ],
+          if (_suggestionsMessage != null) ...[
+            const SizedBox(height: 12),
+            AppNote(
+              title: 'Suggestion sync',
+              icon: Icons.auto_awesome,
+              tone: AppNoteTone.success,
+              child: Text(_suggestionsMessage!),
+            ),
+          ],
           if (_businessOverviewMessage != null) ...[
             const SizedBox(height: 12),
             AppNote(
@@ -529,6 +821,14 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
           tone: AppSummaryTone.info,
         ),
         NotionSummaryBullet(
+          label: 'Multi-section suggestion',
+          value: _suggestions == null
+              ? ''
+              : 'Business ${_suggestions!.businessQuality.value}, valuation ${_suggestions!.valuation.value}, entry ${_suggestions!.entryPoint.value}, risk ${_suggestions!.riskLevel.value}, action ${_suggestions!.finalAction.value}.',
+          icon: Icons.auto_awesome,
+          tone: AppSummaryTone.info,
+        ),
+        NotionSummaryBullet(
           label: 'Decision notes',
           value: _notesController.text.trim(),
           icon: Icons.notes_outlined,
@@ -578,6 +878,84 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
           onChanged(value);
         }
       },
+    );
+  }
+}
+
+class _DecisionSuggestion {
+  const _DecisionSuggestion({required this.value, required this.reason});
+
+  final String value;
+  final String reason;
+}
+
+class _DecisionSuggestions {
+  const _DecisionSuggestions({
+    required this.businessQuality,
+    required this.valuation,
+    required this.entryPoint,
+    required this.riskLevel,
+    required this.finalAction,
+  });
+
+  final _DecisionSuggestion businessQuality;
+  final _DecisionSuggestion valuation;
+  final _DecisionSuggestion entryPoint;
+  final _DecisionSuggestion riskLevel;
+  final _DecisionSuggestion finalAction;
+
+  List<_SuggestionRowData> get rows {
+    return [
+      _SuggestionRowData('Business Quality', businessQuality),
+      _SuggestionRowData('Valuation', valuation),
+      _SuggestionRowData('Entry Point', entryPoint),
+      _SuggestionRowData('Risk Level', riskLevel),
+      _SuggestionRowData('Final Action', finalAction),
+    ];
+  }
+}
+
+class _SuggestionRowData {
+  const _SuggestionRowData(this.label, this.suggestion);
+
+  final String label;
+  final _DecisionSuggestion suggestion;
+}
+
+class _SuggestionPanel extends StatelessWidget {
+  const _SuggestionPanel({required this.suggestions});
+
+  final _DecisionSuggestions suggestions;
+
+  @override
+  Widget build(BuildContext context) {
+    return AppNote(
+      title: 'Multi-section suggestions',
+      icon: Icons.auto_awesome,
+      tone: AppNoteTone.info,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: suggestions.rows.map((row) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 6),
+            child: RichText(
+              text: TextSpan(
+                style: DefaultTextStyle.of(context).style.copyWith(
+                  color: Colors.blue.shade900,
+                  fontWeight: FontWeight.w600,
+                ),
+                children: [
+                  TextSpan(
+                    text: '${row.label}: ${row.suggestion.value}. ',
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                  TextSpan(text: row.suggestion.reason),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      ),
     );
   }
 }
