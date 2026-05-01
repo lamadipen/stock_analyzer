@@ -43,7 +43,7 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
   bool _isGenerating = false;
   bool _hasSavedData = false;
   bool _suspendAutosave = false;
-  bool _showReportMode = false;
+  bool _showReportMode = true;
   DateTime? _lastSavedAt;
   String? _errorMessage;
   late List<_BusinessChecklistItem> _items = _defaultItems();

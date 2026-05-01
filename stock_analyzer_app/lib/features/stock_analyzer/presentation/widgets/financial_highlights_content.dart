@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
 class FinancialHighlightsContent extends StatelessWidget {
@@ -15,89 +16,45 @@ class FinancialHighlightsContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const ChecklistCard(
-          items: [
-            ChecklistCardItem(
-              title:
-                  'Revenue/Sales: Consistently increasing over the last 5-10 years.',
+        NotionBulletSummary(
+          title: '${ticker.toUpperCase()} Financial Highlights',
+          subtitle: 'Report view checklist for financial quality.',
+          bullets: const [
+            NotionSummaryBullet(
+              label: 'Revenue / sales',
+              value: 'Look for consistent growth over the last 5-10 years.',
+              icon: Icons.trending_up,
+              tone: AppSummaryTone.success,
             ),
-            ChecklistCardItem(
-              title:
-                  'Net Income: Consistently increasing over the last 5-10 years.',
+            NotionSummaryBullet(
+              label: 'Net income',
+              value:
+                  'Look for consistent growth; if net income is noisy, check operating income.',
+              icon: Icons.attach_money,
+              tone: AppSummaryTone.info,
             ),
-            ChecklistCardItem(
-              title:
-                  'Cash Flow from Operations: Consistently increasing over the last 5-10 years.',
+            NotionSummaryBullet(
+              label: 'Cash flow from operations',
+              value: 'Look for consistent growth over the last 5-10 years.',
+              icon: Icons.account_balance_wallet_outlined,
+              tone: AppSummaryTone.success,
+            ),
+            NotionSummaryBullet(
+              label: 'Profitability',
+              value:
+                  'Gross and net profit margins should be consistent or increasing for 5 years; greater than 10% is generally good.',
+              icon: Icons.percent,
+              tone: AppSummaryTone.info,
+            ),
+            NotionSummaryBullet(
+              label: 'Debt quality',
+              value:
+                  'Prefer current ratio above 1, debt to EBITDA below 3, and debt servicing ratio below 30%.',
+              icon: Icons.warning_amber,
+              tone: AppSummaryTone.warning,
             ),
           ],
         ),
-        const SizedBox(height: 16),
-        const AppNote(
-          child: Text(
-            'If net income is not consistently increasing, look at operating income.',
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // ---- profitability metrics ----
-        const Text(
-          'Profitability Metrics',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Gross Profit Margin: consistent or increasing for 5 years.',
-        ),
-        const SizedBox(height: 8),
-        const Text('Net Profit Margin: consistent or increasing for 5 years.'),
-        const SizedBox(height: 8),
-        const AppNote(
-          tone: AppNoteTone.success,
-          child: Text(
-            'Increasing / Consistent for 5 Years (Greater than 10% is considered good).',
-          ),
-        ),
-
-        const SizedBox(height: 16),
-
-        // ---- Conservative Debt section ----
-        const Text(
-          'Conservative Debt',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        const Text('Current Ratio = Current Assets / Current Liabilities > 1'),
-        const SizedBox(height: 8),
-        const Text('Debt to EBITDA Ratio = Total Debt / EBITDA < 3'),
-        const SizedBox(height: 8),
-        const Text('Debt Servicing Ratio < 30%'),
-        const SizedBox(height: 8),
-        const AppNote(
-          tone: AppNoteTone.warning,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Look for a Current Ratio of at least 1, ideally 2. Any value below 1 means the company\'s short-term obligations exceed its short-term assets.',
-              ),
-              SizedBox(height: 8),
-              Text('Total Debt = short term + long term debt'),
-              SizedBox(height: 4),
-              Text(
-                'EBITDA = Earnings Before Interest, Taxes, Depreciation & Amortization',
-              ),
-              SizedBox(height: 4),
-              Text(
-                'Debt Servicing ratio = net interest expense / cash flow from operations * 100',
-              ),
-              SizedBox(height: 8),
-              Text(
-                'For Banks, Financial Institutions, Insurance, REITs, Property Developer, Commodity above calculation doesn\'t work. We need to look for Common Equity Tier 1 Ratio > 10% to add the stock into watchlist. Search google for this ratio.',
-              ),
-            ],
-          ),
-        ),
-
         const SizedBox(height: 16),
 
         ReferenceLinks(

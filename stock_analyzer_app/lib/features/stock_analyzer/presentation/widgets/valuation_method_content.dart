@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -16,6 +17,7 @@ class _ValuationMethodContentState extends State<ValuationMethodContent> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _hasSavedData = false;
+  bool _showReportMode = true;
   DateTime? _lastSavedAt;
 
   final List<_ValuationChecklistItem> _items = const [
@@ -157,33 +159,42 @@ class _ValuationMethodContentState extends State<ValuationMethodContent> {
           ],
         ),
         const SizedBox(height: 8),
-        const Text('Price is below or near to the intrinsic value.'),
-        const SizedBox(height: 16),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            children: _items.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              return CheckboxListTile(
-                value: _checked[index],
-                onChanged: (value) {
-                  setState(() {
-                    _checked[index] = value ?? false;
-                  });
-                  _saveNow();
-                },
-                title: Text(item.title),
-                controlAffinity: ListTileControlAffinity.leading,
-                dense: true,
-                contentPadding: const EdgeInsets.only(left: 8, right: 12),
-              );
-            }).toList(),
-          ),
+        SectionReportModeToggle(
+          showReportMode: _showReportMode,
+          onChanged: (value) => setState(() => _showReportMode = value),
         ),
+        const SizedBox(height: 12),
+        if (_showReportMode)
+          _valuationReport()
+        else ...[
+          const Text('Price is below or near to the intrinsic value.'),
+          const SizedBox(height: 16),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: _items.asMap().entries.map((entry) {
+                final index = entry.key;
+                final item = entry.value;
+                return CheckboxListTile(
+                  value: _checked[index],
+                  onChanged: (value) {
+                    setState(() {
+                      _checked[index] = value ?? false;
+                    });
+                    _saveNow();
+                  },
+                  title: Text(item.title),
+                  controlAffinity: ListTileControlAffinity.leading,
+                  dense: true,
+                  contentPadding: const EdgeInsets.only(left: 8, right: 12),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
         const SizedBox(height: 16),
         Container(
           width: double.infinity,
@@ -260,6 +271,43 @@ class _ValuationMethodContentState extends State<ValuationMethodContent> {
               backgroundColor: Colors.green.shade50,
             );
           }).toList(),
+        ),
+      ],
+    );
+  }
+
+  Widget _valuationReport() {
+    final selected = [
+      for (var i = 0; i < _checked.length; i++)
+        if (_checked[i]) _items[i].title,
+    ];
+    return NotionBulletSummary(
+      title: '${widget.ticker.toUpperCase()} Valuation Method',
+      subtitle:
+          '${selected.length}/${_items.length} valuation methods selected.',
+      bullets: [
+        NotionSummaryBullet(
+          label: 'Selected methods',
+          value: selected.isEmpty
+              ? 'No valuation method selected yet.'
+              : selected.join(', '),
+          icon: Icons.price_check,
+          tone: selected.isEmpty
+              ? AppSummaryTone.warning
+              : AppSummaryTone.success,
+        ),
+        const NotionSummaryBullet(
+          label: 'Core test',
+          value: 'Price should be below or near intrinsic value.',
+          icon: Icons.fact_check_outlined,
+          tone: AppSummaryTone.info,
+        ),
+        const NotionSummaryBullet(
+          label: 'Margin of safety note',
+          value:
+              'When share price is below intrinsic value, there is a margin of safety.',
+          icon: Icons.shield_outlined,
+          tone: AppSummaryTone.success,
         ),
       ],
     );

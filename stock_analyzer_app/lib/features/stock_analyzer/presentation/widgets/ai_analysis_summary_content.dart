@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/ollama_ai_service.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_markdown_exporter.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
@@ -30,6 +31,7 @@ class _AiAnalysisSummaryContentState extends State<AiAnalysisSummaryContent> {
   bool _isGenerating = false;
   bool _isSaving = false;
   bool _hasSavedData = false;
+  bool _showReportMode = true;
   DateTime? _lastSavedAt;
   String? _errorMessage;
 
@@ -199,167 +201,196 @@ class _AiAnalysisSummaryContentState extends State<AiAnalysisSummaryContent> {
           ],
         ),
         const SizedBox(height: 12),
-        const AppNote(
-          title: 'AI provider',
-          icon: Icons.memory,
-          child: Text(
-            'Use local Ollama, Gemini, or Groq to summarize your saved checklist notes. API keys are used only for the request and are not saved by this app.',
-          ),
-        ),
-        const SizedBox(height: 16),
-        DropdownButtonFormField<AiAnalysisProvider>(
-          initialValue: _provider,
-          decoration: const InputDecoration(
-            labelText: 'AI Provider',
-            border: OutlineInputBorder(),
-            prefixIcon: Icon(Icons.hub_outlined),
-          ),
-          items: AiAnalysisProvider.values.map((provider) {
-            return DropdownMenuItem(
-              value: provider,
-              child: Text(provider.label),
-            );
-          }).toList(),
-          onChanged: (provider) {
-            if (provider == null) {
-              return;
-            }
-
-            setState(() {
-              _provider = provider;
-              _modelController.text = _defaultModelFor(provider);
-              _errorMessage = null;
-            });
-          },
+        SectionReportModeToggle(
+          showReportMode: _showReportMode,
+          onChanged: (value) => setState(() => _showReportMode = value),
         ),
         const SizedBox(height: 12),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isNarrow = constraints.maxWidth < 680;
-            final urlField = TextField(
-              controller: _baseUrlController,
-              decoration: const InputDecoration(
-                labelText: 'Ollama URL',
-                hintText: 'http://localhost:11434',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.link),
-              ),
-            );
-            final modelField = TextField(
-              controller: _modelController,
-              decoration: const InputDecoration(
-                labelText: 'Model',
-                hintText: 'gemma3, gemini-2.5-flash, llama-3.3-70b-versatile',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.smart_toy_outlined),
-              ),
-            );
-            final apiKeyField = TextField(
-              controller: _apiKeyController,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: '${_provider.label} API Key',
-                hintText: 'Paste your API key',
-                border: const OutlineInputBorder(),
-                prefixIcon: const Icon(Icons.key),
-              ),
-            );
-
-            final fields = [
-              if (_provider == AiAnalysisProvider.ollama) urlField,
-              modelField,
-              if (_provider != AiAnalysisProvider.ollama) apiKeyField,
-            ];
-
-            if (isNarrow) {
-              return Column(
-                children: fields
-                    .expand((field) => [field, const SizedBox(height: 12)])
-                    .take(fields.length * 2 - 1)
-                    .toList(),
+        if (_showReportMode)
+          _aiReport()
+        else ...[
+          const AppNote(
+            title: 'AI provider',
+            icon: Icons.memory,
+            child: Text(
+              'Use local Ollama, Gemini, or Groq to summarize your saved checklist notes. API keys are used only for the request and are not saved by this app.',
+            ),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<AiAnalysisProvider>(
+            initialValue: _provider,
+            decoration: const InputDecoration(
+              labelText: 'AI Provider',
+              border: OutlineInputBorder(),
+              prefixIcon: Icon(Icons.hub_outlined),
+            ),
+            items: AiAnalysisProvider.values.map((provider) {
+              return DropdownMenuItem(
+                value: provider,
+                child: Text(provider.label),
               );
-            }
+            }).toList(),
+            onChanged: (provider) {
+              if (provider == null) {
+                return;
+              }
 
-            return Row(
-              children: [
-                for (var i = 0; i < fields.length; i++) ...[
-                  Expanded(flex: i == 0 ? 3 : 2, child: fields[i]),
-                  if (i != fields.length - 1) const SizedBox(width: 12),
+              setState(() {
+                _provider = provider;
+                _modelController.text = _defaultModelFor(provider);
+                _errorMessage = null;
+              });
+            },
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 680;
+              final urlField = TextField(
+                controller: _baseUrlController,
+                decoration: const InputDecoration(
+                  labelText: 'Ollama URL',
+                  hintText: 'http://localhost:11434',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.link),
+                ),
+              );
+              final modelField = TextField(
+                controller: _modelController,
+                decoration: const InputDecoration(
+                  labelText: 'Model',
+                  hintText: 'gemma3, gemini-2.5-flash, llama-3.3-70b-versatile',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.smart_toy_outlined),
+                ),
+              );
+              final apiKeyField = TextField(
+                controller: _apiKeyController,
+                obscureText: true,
+                decoration: InputDecoration(
+                  labelText: '${_provider.label} API Key',
+                  hintText: 'Paste your API key',
+                  border: const OutlineInputBorder(),
+                  prefixIcon: const Icon(Icons.key),
+                ),
+              );
+
+              final fields = [
+                if (_provider == AiAnalysisProvider.ollama) urlField,
+                modelField,
+                if (_provider != AiAnalysisProvider.ollama) apiKeyField,
+              ];
+
+              if (isNarrow) {
+                return Column(
+                  children: fields
+                      .expand((field) => [field, const SizedBox(height: 12)])
+                      .take(fields.length * 2 - 1)
+                      .toList(),
+                );
+              }
+
+              return Row(
+                children: [
+                  for (var i = 0; i < fields.length; i++) ...[
+                    Expanded(flex: i == 0 ? 3 : 2, child: fields[i]),
+                    if (i != fields.length - 1) const SizedBox(width: 12),
+                  ],
                 ],
-              ],
-            );
-          },
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            FilledButton.icon(
-              onPressed: _isGenerating ? null : _generateSummary,
-              icon: _isGenerating
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.auto_awesome),
-              label: Text(_isGenerating ? 'Generating...' : 'Generate Summary'),
-            ),
-            OutlinedButton.icon(
-              onPressed: _summaryController.text.trim().isEmpty
-                  ? null
-                  : _saveSummary,
-              icon: const Icon(Icons.save_outlined),
-              label: const Text('Save'),
-            ),
-            OutlinedButton.icon(
-              onPressed: _clearSummary,
-              icon: const Icon(Icons.delete_outline),
-              label: const Text('Clear'),
+              );
+            },
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilledButton.icon(
+                onPressed: _isGenerating ? null : _generateSummary,
+                icon: _isGenerating
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.auto_awesome),
+                label: Text(
+                  _isGenerating ? 'Generating...' : 'Generate Summary',
+                ),
+              ),
+              OutlinedButton.icon(
+                onPressed: _summaryController.text.trim().isEmpty
+                    ? null
+                    : _saveSummary,
+                icon: const Icon(Icons.save_outlined),
+                label: const Text('Save'),
+              ),
+              OutlinedButton.icon(
+                onPressed: _clearSummary,
+                icon: const Icon(Icons.delete_outline),
+                label: const Text('Clear'),
+              ),
+            ],
+          ),
+          if (_isGenerating) ...[
+            const SizedBox(height: 12),
+            AppNote(
+              title: 'Generating AI summary',
+              icon: Icons.hourglass_top,
+              tone: AppNoteTone.info,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  LinearProgressIndicator(),
+                  SizedBox(height: 10),
+                  Text(
+                    'Waiting for ${_provider.label}. This can take a few seconds for cloud APIs and longer for local models.',
+                  ),
+                ],
+              ),
             ),
           ],
-        ),
-        if (_isGenerating) ...[
-          const SizedBox(height: 12),
-          AppNote(
-            title: 'Generating AI summary',
-            icon: Icons.hourglass_top,
-            tone: AppNoteTone.info,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                LinearProgressIndicator(),
-                SizedBox(height: 10),
-                Text(
-                  'Waiting for ${_provider.label}. This can take a few seconds for cloud APIs and longer for local models.',
-                ),
-              ],
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 12),
+            AppNote(
+              tone: AppNoteTone.risk,
+              title: 'AI connection issue',
+              icon: Icons.error_outline,
+              child: Text(_errorMessage!),
+            ),
+          ],
+          const SizedBox(height: 16),
+          TextField(
+            controller: _summaryController,
+            minLines: 12,
+            maxLines: 24,
+            onChanged: (_) => setState(() {}),
+            decoration: const InputDecoration(
+              labelText: 'AI Summary',
+              hintText: 'Generated summary will appear here.',
+              border: OutlineInputBorder(),
+              alignLabelWithHint: true,
             ),
           ),
         ],
-        if (_errorMessage != null) ...[
-          const SizedBox(height: 12),
-          AppNote(
-            tone: AppNoteTone.risk,
-            title: 'AI connection issue',
-            icon: Icons.error_outline,
-            child: Text(_errorMessage!),
-          ),
-        ],
-        const SizedBox(height: 16),
-        TextField(
-          controller: _summaryController,
-          minLines: 12,
-          maxLines: 24,
-          onChanged: (_) => setState(() {}),
-          decoration: const InputDecoration(
-            labelText: 'AI Summary',
-            hintText: 'Generated summary will appear here.',
-            border: OutlineInputBorder(),
-            alignLabelWithHint: true,
-          ),
+      ],
+    );
+  }
+
+  Widget _aiReport() {
+    return NotionBulletSummary(
+      title: '${widget.ticker.toUpperCase()} AI Analysis Summary',
+      subtitle:
+          'Provider: ${_provider.label}. Model: ${_modelController.text.trim()}.',
+      bullets: [
+        NotionSummaryBullet(
+          label: 'AI summary',
+          value: _summaryController.text.trim(),
+          icon: Icons.auto_awesome,
+          tone: AppSummaryTone.info,
         ),
       ],
+      emptyMessage:
+          'No AI summary saved yet. Switch to Workspace to generate one.',
     );
   }
 

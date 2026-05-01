@@ -5,6 +5,7 @@ import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/domain/analysis_section_models.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -22,6 +23,7 @@ class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
   bool _isSaving = false;
   bool _isRestoring = false;
   bool _hasSavedData = false;
+  bool _showReportMode = true;
   DateTime? _lastSavedAt;
   Timer? _saveDebounce;
 
@@ -301,86 +303,140 @@ class _MarginOfSafetyContentState extends State<MarginOfSafetyContent> {
           ],
         ),
         const SizedBox(height: 12),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: CheckboxListTile(
-            value: _isGreatEntry,
-            onChanged: (value) {
-              setState(() => _isGreatEntry = value ?? false);
-              _scheduleSave();
-            },
-            title: const Text(
-              'Price is at Dip of an Uptrend, at the Support Level of a Consolidation or Reversing into a new uptrend',
-            ),
-            controlAffinity: ListTileControlAffinity.leading,
-            dense: true,
-            contentPadding: const EdgeInsets.only(left: 8, right: 12),
-          ),
-        ),
-        const SizedBox(height: 16),
-        const AppNote(
-          tone: AppNoteTone.warning,
-          child: Text(
-            'Avoid buying at highs of uptrend, i.e. far from moving average.',
-          ),
+        SectionReportModeToggle(
+          showReportMode: _showReportMode,
+          onChanged: (value) => setState(() => _showReportMode = value),
         ),
         const SizedBox(height: 12),
-        const AppNote(
-          child: Text(
-            'Always buy/add shares on the dip or wave down near to moving average.',
+        if (_showReportMode)
+          _marginReport()
+        else ...[
+          DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: CheckboxListTile(
+              value: _isGreatEntry,
+              onChanged: (value) {
+                setState(() => _isGreatEntry = value ?? false);
+                _scheduleSave();
+              },
+              title: const Text(
+                'Price is at Dip of an Uptrend, at the Support Level of a Consolidation or Reversing into a new uptrend',
+              ),
+              controlAffinity: ListTileControlAffinity.leading,
+              dense: true,
+              contentPadding: const EdgeInsets.only(left: 8, right: 12),
+            ),
           ),
-        ),
-        const SizedBox(height: 12),
-        const AppNote(
-          tone: AppNoteTone.info,
-          child: Text(
-            'Confirmed Uptrend: 50MA above 150MA and/or price above 200MA.',
+          const SizedBox(height: 16),
+          const AppNote(
+            tone: AppNoteTone.warning,
+            child: Text(
+              'Avoid buying at highs of uptrend, i.e. far from moving average.',
+            ),
           ),
+          const SizedBox(height: 12),
+          const AppNote(
+            child: Text(
+              'Always buy/add shares on the dip or wave down near to moving average.',
+            ),
+          ),
+          const SizedBox(height: 12),
+          const AppNote(
+            tone: AppNoteTone.info,
+            child: Text(
+              'Confirmed Uptrend: 50MA above 150MA and/or price above 200MA.',
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Text(
+                'Possible Buy Points as per chart',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              FilledButton.icon(
+                onPressed: _addBuyPoint,
+                icon: const Icon(Icons.add),
+                label: const Text('Add'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _BuyPointsEditor(buyPoints: _buyPoints, onDelete: _deleteBuyPoint),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              const Text(
+                'References',
+                style: TextStyle(fontWeight: FontWeight.w600),
+              ),
+              FilledButton.icon(
+                onPressed: _addReferenceLink,
+                icon: const Icon(Icons.add_link),
+                label: const Text('Add Link'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          _ReferenceLinksEditor(
+            referenceLinks: _referenceLinks,
+            onOpen: _launch,
+            onDelete: _deleteReferenceLink,
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _marginReport() {
+    final buyPointText = _buyPoints
+        .map((row) {
+          final buyPoint = row.buyPointController.text.trim();
+          final targetPrice = row.targetPriceController.text.trim();
+          final date = row.dateController.text.trim();
+          if (buyPoint.isEmpty && targetPrice.isEmpty && date.isEmpty) {
+            return '';
+          }
+          return '$buyPoint target $targetPrice created $date'.trim();
+        })
+        .where((text) => text.isNotEmpty)
+        .join('; ');
+
+    return NotionBulletSummary(
+      title: '${widget.ticker.toUpperCase()} Margin of Safety',
+      subtitle: _isGreatEntry
+          ? 'Great entry criteria checked.'
+          : 'Entry criteria not checked.',
+      bullets: [
+        NotionSummaryBullet(
+          label: 'Entry read',
+          value: _isGreatEntry
+              ? 'Price is near a dip, support level, or reversal setup.'
+              : 'Great point of entry has not been confirmed.',
+          icon: Icons.shield_outlined,
+          tone: _isGreatEntry ? AppSummaryTone.success : AppSummaryTone.warning,
         ),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            const Text(
-              'Possible Buy Points as per chart',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            FilledButton.icon(
-              onPressed: _addBuyPoint,
-              icon: const Icon(Icons.add),
-              label: const Text('Add'),
-            ),
-          ],
+        NotionSummaryBullet(
+          label: 'Possible buy points',
+          value: buyPointText,
+          icon: Icons.add_chart,
+          tone: AppSummaryTone.info,
         ),
-        const SizedBox(height: 8),
-        _BuyPointsEditor(buyPoints: _buyPoints, onDelete: _deleteBuyPoint),
-        const SizedBox(height: 16),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            const Text(
-              'References',
-              style: TextStyle(fontWeight: FontWeight.w600),
-            ),
-            FilledButton.icon(
-              onPressed: _addReferenceLink,
-              icon: const Icon(Icons.add_link),
-              label: const Text('Add Link'),
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        _ReferenceLinksEditor(
-          referenceLinks: _referenceLinks,
-          onOpen: _launch,
-          onDelete: _deleteReferenceLink,
+        const NotionSummaryBullet(
+          label: 'Chart rule',
+          value:
+              'Avoid buying at highs of an uptrend; prefer dips near moving averages.',
+          icon: Icons.show_chart,
+          tone: AppSummaryTone.warning,
         ),
       ],
     );

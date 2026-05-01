@@ -88,6 +88,37 @@ class NotionBulletSummary extends StatelessWidget {
   }
 }
 
+class SectionReportModeToggle extends StatelessWidget {
+  const SectionReportModeToggle({
+    super.key,
+    required this.showReportMode,
+    required this.onChanged,
+  });
+
+  final bool showReportMode;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<bool>(
+      segments: const [
+        ButtonSegment(
+          value: false,
+          icon: Icon(Icons.edit_note),
+          label: Text('Workspace'),
+        ),
+        ButtonSegment(
+          value: true,
+          icon: Icon(Icons.article_outlined),
+          label: Text('Report'),
+        ),
+      ],
+      selected: {showReportMode},
+      onSelectionChanged: (values) => onChanged(values.first),
+    );
+  }
+}
+
 class _SummaryBulletRow extends StatelessWidget {
   const _SummaryBulletRow({required this.bullet});
 

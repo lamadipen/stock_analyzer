@@ -38,7 +38,7 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _hasSavedData = false;
-  bool _showReportMode = false;
+  bool _showReportMode = true;
   DateTime? _lastSavedAt;
   String? _businessOverviewMessage;
   BusinessOverview? _businessOverview;

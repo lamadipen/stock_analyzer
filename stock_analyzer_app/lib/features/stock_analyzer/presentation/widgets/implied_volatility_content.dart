@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
 class ImpliedVolatilityContent extends StatelessWidget {
@@ -13,13 +14,25 @@ class ImpliedVolatilityContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ---- criteria ----
-        Text('View Implied Volatility : $ticker'),
-        const SizedBox(height: 16),
-        const AppNote(
-          child: Text(
-            'Implied Volatility is a measure of the price volatility of an option contract. It is used to gauge the expected price movement of the underlying asset in the future. A higher implied volatility indicates a more volatile asset, while a lower implied volatility indicates a less volatile asset.',
-          ),
+        NotionBulletSummary(
+          title: '${ticker.toUpperCase()} Implied Volatility',
+          subtitle: 'Report view for option-market volatility signal.',
+          bullets: const [
+            NotionSummaryBullet(
+              label: 'Definition',
+              value:
+                  'Implied volatility estimates expected future price movement from option prices.',
+              icon: Icons.show_chart,
+              tone: AppSummaryTone.info,
+            ),
+            NotionSummaryBullet(
+              label: 'Read',
+              value:
+                  'Higher IV signals greater expected movement; lower IV signals calmer expectations.',
+              icon: Icons.speed,
+              tone: AppSummaryTone.warning,
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         ReferenceLinks(

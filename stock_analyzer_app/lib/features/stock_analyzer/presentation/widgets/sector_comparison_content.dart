@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
 class SectorComparisonContent extends StatelessWidget {
@@ -13,13 +14,25 @@ class SectorComparisonContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ---- criteria ----
-        const Text('View Sector Performance:'),
-        const SizedBox(height: 16),
-        const AppNote(
-          child: Text(
-            'This gives overview of how each sector is performing in comparison to the stock.',
-          ),
+        NotionBulletSummary(
+          title: '${ticker.toUpperCase()} Sector Comparison',
+          subtitle: 'Report view for market and sector context.',
+          bullets: const [
+            NotionSummaryBullet(
+              label: 'Sector performance',
+              value:
+                  'Compare the stock against sector performance to separate company-specific strength from market-wide moves.',
+              icon: Icons.pie_chart_outline,
+              tone: AppSummaryTone.info,
+            ),
+            NotionSummaryBullet(
+              label: 'Relative strength',
+              value:
+                  'A stock outperforming its sector can confirm momentum; underperformance needs explanation.',
+              icon: Icons.compare_arrows,
+              tone: AppSummaryTone.warning,
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         ReferenceLinks(

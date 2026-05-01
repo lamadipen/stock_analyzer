@@ -11,6 +11,7 @@ import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/institutional_ownership_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/investment_risks_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/margin_of_safety_content.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/price_alerts_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/sale_target_content.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/sector_comparison_content.dart';
@@ -42,9 +43,39 @@ final Map<String, ContentWidgetBuilder> contentRegistry = {
   'Sector Comparison': (ticker) => SectorComparisonContent(ticker: ticker),
   'Short Term Investment': (ticker) =>
       ShortTermInvestmentGuideContent(ticker: ticker),
+  'Resources': (ticker) => NotionBulletSummary(
+    title: '${ticker.toUpperCase()} Resources',
+    subtitle: 'Reference hub for validating the investment checklist.',
+    bullets: const [
+      NotionSummaryBullet(
+        label: 'Primary sources',
+        value:
+            'Use company filings, earnings releases, and investor presentations when available.',
+        icon: Icons.source_outlined,
+        tone: AppSummaryTone.info,
+      ),
+      NotionSummaryBullet(
+        label: 'Cross-checks',
+        value:
+            'Compare third-party financial sites against reported company numbers before finalizing the thesis.',
+        icon: Icons.fact_check_outlined,
+        tone: AppSummaryTone.warning,
+      ),
+    ],
+  ),
   // Default/fallback widget
-  'default': (ticker) =>
-      Text('Details for the selected section will be displayed here.'),
+  'default': (ticker) => NotionBulletSummary(
+    title: '${ticker.toUpperCase()} Section Report',
+    subtitle: 'No dedicated section renderer is configured yet.',
+    bullets: const [
+      NotionSummaryBullet(
+        label: 'Next step',
+        value: 'Add a section-specific workspace or report renderer.',
+        icon: Icons.info_outline,
+        tone: AppSummaryTone.info,
+      ),
+    ],
+  ),
 };
 
 Widget getContentWidget(String sectionTitle, String ticker) {

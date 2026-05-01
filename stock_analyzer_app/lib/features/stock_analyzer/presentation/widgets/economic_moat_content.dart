@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
@@ -15,6 +16,7 @@ class _EconomicMoatContentState extends State<EconomicMoatContent> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _hasSavedData = false;
+  bool _showReportMode = true;
   DateTime? _lastSavedAt;
 
   late List<_MoatChecklistItem> _items = _defaultItems();
@@ -174,33 +176,80 @@ class _EconomicMoatContentState extends State<EconomicMoatContent> {
           ],
         ),
         const SizedBox(height: 12),
-        ChecklistCard(
-          items: _items.map((item) {
-            return ChecklistCardItem(
-              title: item.title,
-              isChecked: item.isChecked,
-              isChild: item.isChild,
-            );
-          }).toList(),
-          onChanged: (index, isChecked) {
-            setState(() {
-              _items[index] = _items[index].copyWith(isChecked: isChecked);
-            });
-            _saveNow();
-          },
-        ),
-        const SizedBox(height: 16),
-        const AppNote(
-          child: Text(
-            'Based on peer comparison, select if the company has some kind of moat.',
-          ),
+        SectionReportModeToggle(
+          showReportMode: _showReportMode,
+          onChanged: (value) => setState(() => _showReportMode = value),
         ),
         const SizedBox(height: 12),
-        const AppNote(
-          tone: AppNoteTone.warning,
-          child: Text(
-            'Technological innovations, patents, and pharmaceutical patents are often not sustainable.',
+        if (_showReportMode)
+          _moatReport()
+        else ...[
+          ChecklistCard(
+            items: _items.map((item) {
+              return ChecklistCardItem(
+                title: item.title,
+                isChecked: item.isChecked,
+                isChild: item.isChild,
+              );
+            }).toList(),
+            onChanged: (index, isChecked) {
+              setState(() {
+                _items[index] = _items[index].copyWith(isChecked: isChecked);
+              });
+              _saveNow();
+            },
           ),
+          const SizedBox(height: 16),
+          const AppNote(
+            child: Text(
+              'Based on peer comparison, select if the company has some kind of moat.',
+            ),
+          ),
+          const SizedBox(height: 12),
+          const AppNote(
+            tone: AppNoteTone.warning,
+            child: Text(
+              'Technological innovations, patents, and pharmaceutical patents are often not sustainable.',
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _moatReport() {
+    final checked = _items.where((item) => item.isChecked).toList();
+    final unchecked = _items.where((item) => !item.isChecked).toList();
+    return NotionBulletSummary(
+      title: '${widget.ticker.toUpperCase()} Economic Moat',
+      subtitle: '${checked.length}/${_items.length} moat signals checked.',
+      bullets: [
+        NotionSummaryBullet(
+          label: 'Moat read',
+          value: checked.isEmpty
+              ? 'No moat signals checked yet.'
+              : 'Checked signals: ${checked.map((item) => item.title).join(', ')}',
+          icon: Icons.castle_outlined,
+          tone: checked.length >= 4
+              ? AppSummaryTone.success
+              : checked.length >= 2
+              ? AppSummaryTone.warning
+              : AppSummaryTone.risk,
+        ),
+        NotionSummaryBullet(
+          label: 'Signals to verify',
+          value: unchecked.isEmpty
+              ? 'All listed moat signals are checked.'
+              : unchecked.map((item) => item.title).join(', '),
+          icon: Icons.fact_check_outlined,
+          tone: AppSummaryTone.warning,
+        ),
+        const NotionSummaryBullet(
+          label: 'Caution',
+          value:
+              'Technological innovations, patents, and pharmaceutical patents are often not sustainable on their own.',
+          icon: Icons.warning_amber,
+          tone: AppSummaryTone.warning,
         ),
       ],
     );

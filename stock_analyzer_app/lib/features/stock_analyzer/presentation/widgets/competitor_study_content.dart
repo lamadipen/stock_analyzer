@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/domain/analysis_section_models.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
@@ -20,6 +21,7 @@ class _CompetitorStudyContentState extends State<CompetitorStudyContent> {
   bool _isSaving = false;
   bool _isRestoring = false;
   bool _hasSavedData = false;
+  bool _showReportMode = true;
   DateTime? _lastSavedAt;
   Timer? _saveDebounce;
 
@@ -234,77 +236,110 @@ class _CompetitorStudyContentState extends State<CompetitorStudyContent> {
           ],
         ),
         const SizedBox(height: 12),
-        DecoratedBox(
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey.shade300),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Column(
-            children: _parameters.asMap().entries.map((entry) {
-              final index = entry.key;
-              final parameter = entry.value;
-              return Padding(
-                padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
-                child: Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Checkbox(
-                      value: parameter.isChecked,
-                      onChanged: (value) {
-                        setState(() {
-                          _parameters[index] = parameter.copyWith(
-                            isChecked: value ?? false,
-                          );
-                        });
-                        _scheduleSave();
-                      },
-                    ),
-                    const SizedBox(width: 4),
-                    Expanded(
-                      flex: 2,
-                      child: Padding(
-                        padding: const EdgeInsets.only(top: 14),
-                        child: Text(parameter.title),
+        SectionReportModeToggle(
+          showReportMode: _showReportMode,
+          onChanged: (value) => setState(() => _showReportMode = value),
+        ),
+        const SizedBox(height: 12),
+        if (_showReportMode)
+          _competitorReport()
+        else ...[
+          DecoratedBox(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.grey.shade300),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Column(
+              children: _parameters.asMap().entries.map((entry) {
+                final index = entry.key;
+                final parameter = entry.value;
+                return Padding(
+                  padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Checkbox(
+                        value: parameter.isChecked,
+                        onChanged: (value) {
+                          setState(() {
+                            _parameters[index] = parameter.copyWith(
+                              isChecked: value ?? false,
+                            );
+                          });
+                          _scheduleSave();
+                        },
                       ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 3,
-                      child: TextField(
-                        controller: parameter.controller,
-                        minLines: 1,
-                        maxLines: 3,
-                        decoration: const InputDecoration(
-                          border: OutlineInputBorder(),
-                          isDense: true,
-                          hintText: 'Add comparison note',
+                      const SizedBox(width: 4),
+                      Expanded(
+                        flex: 2,
+                        child: Padding(
+                          padding: const EdgeInsets.only(top: 14),
+                          child: Text(parameter.title),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        flex: 3,
+                        child: TextField(
+                          controller: parameter.controller,
+                          minLines: 1,
+                          maxLines: 3,
+                          decoration: const InputDecoration(
+                            border: OutlineInputBorder(),
+                            isDense: true,
+                            hintText: 'Add comparison note',
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              }).toList(),
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        const AppNote(
-          child: Text(
-            'Note: Compare the performance with its industry competitor.',
+          const SizedBox(height: 16),
+          const AppNote(
+            child: Text(
+              'Note: Compare the performance with its industry competitor.',
+            ),
           ),
-        ),
-        const SizedBox(height: 16),
-        ReferenceLinks(
-          title: 'Peer Comparison Chart',
-          links: Map.fromEntries(competitorLinks.entries.take(2)),
-        ),
-        const SizedBox(height: 16),
-        ReferenceLinks(
-          title: 'S&P 500 Comparison Chart',
-          links: Map.fromEntries(competitorLinks.entries.skip(2)),
-          color: Colors.green,
-        ),
+          const SizedBox(height: 16),
+          ReferenceLinks(
+            title: 'Peer Comparison Chart',
+            links: Map.fromEntries(competitorLinks.entries.take(2)),
+          ),
+          const SizedBox(height: 16),
+          ReferenceLinks(
+            title: 'S&P 500 Comparison Chart',
+            links: Map.fromEntries(competitorLinks.entries.skip(2)),
+            color: Colors.green,
+          ),
+        ],
       ],
+    );
+  }
+
+  Widget _competitorReport() {
+    final checked = _parameters.where((item) => item.isChecked).toList();
+    return NotionBulletSummary(
+      title: '${widget.ticker.toUpperCase()} Competitor Study',
+      subtitle:
+          '${checked.length}/${_parameters.length} comparison parameters checked.',
+      bullets: _parameters.map((parameter) {
+        final note = parameter.controller.text.trim();
+        return NotionSummaryBullet(
+          label: parameter.title,
+          value: note.isEmpty
+              ? (parameter.isChecked ? 'Checked' : 'Needs comparison')
+              : note,
+          icon: parameter.isChecked
+              ? Icons.check_circle_outline
+              : Icons.radio_button_unchecked,
+          tone: parameter.isChecked
+              ? AppSummaryTone.success
+              : AppSummaryTone.warning,
+        );
+      }).toList(),
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
 class InstitutionalOwnershipContent extends StatelessWidget {
@@ -13,13 +14,25 @@ class InstitutionalOwnershipContent extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ---- criteria ----
-        Text('View Institutional Ownership Activity : $ticker'),
-        const SizedBox(height: 16),
-        const AppNote(
-          child: Text(
-            'This gives overview of how big investor are trading the stock. If they are selling the stock, it could be a sign of a sell off. If they are buying the stock, it could be a sign of a buy off.',
-          ),
+        NotionBulletSummary(
+          title: '${ticker.toUpperCase()} Institutional Ownership',
+          subtitle: 'Report view for large-holder activity.',
+          bullets: const [
+            NotionSummaryBullet(
+              label: 'Ownership signal',
+              value:
+                  'Review whether institutions are accumulating, reducing, or maintaining exposure.',
+              icon: Icons.account_balance,
+              tone: AppSummaryTone.info,
+            ),
+            NotionSummaryBullet(
+              label: 'Interpretation',
+              value:
+                  'Institutional buying can support confidence; selling can flag risk or rebalancing pressure.',
+              icon: Icons.compare_arrows,
+              tone: AppSummaryTone.warning,
+            ),
+          ],
         ),
         const SizedBox(height: 16),
         ReferenceLinks(

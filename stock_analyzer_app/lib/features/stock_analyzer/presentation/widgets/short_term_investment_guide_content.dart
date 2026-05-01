@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 
 class ShortTermInvestmentGuideContent extends StatelessWidget {
   final String ticker;
@@ -6,47 +7,29 @@ class ShortTermInvestmentGuideContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ---- criteria ----
-        const Text('View Short Term Investment Guide:'),
-        const SizedBox(height: 16),
-        // ---- note box ----
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Text(
-            'High Growth Rate.',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+    return NotionBulletSummary(
+      title: '${ticker.toUpperCase()} Short Term Investment Guide',
+      subtitle: 'Report view for short-term trade framing.',
+      bullets: const [
+        NotionSummaryBullet(
+          label: 'Growth setup',
+          value: 'High growth rate can support a short-term opportunity.',
+          icon: Icons.trending_up,
+          tone: AppSummaryTone.success,
         ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Text(
-            'High Debt (RISK)',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+        NotionSummaryBullet(
+          label: 'Risk setup',
+          value:
+              'High debt increases risk and should limit position size or holding period.',
+          icon: Icons.warning_amber,
+          tone: AppSummaryTone.risk,
         ),
-        const SizedBox(height: 16),
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            border: Border.all(color: Colors.grey),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Text(
-            'Buy and Sell with in 6 months',
-            style: TextStyle(fontWeight: FontWeight.bold),
-          ),
+        NotionSummaryBullet(
+          label: 'Time frame',
+          value:
+              'Buy and sell within 6 months when using this short-term framework.',
+          icon: Icons.timeline,
+          tone: AppSummaryTone.info,
         ),
       ],
     );

@@ -3,6 +3,7 @@ import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/domain/analysis_section_models.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/domain/sale_target_calculator.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
@@ -18,6 +19,7 @@ class _SaleTargetContentState extends State<SaleTargetContent> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _hasSavedData = false;
+  bool _showReportMode = true;
   DateTime? _lastSavedAt;
 
   late final List<SaleTarget> _targets = _defaultTargets();
@@ -427,16 +429,25 @@ class _SaleTargetContentState extends State<SaleTargetContent> {
           ],
         ),
         const SizedBox(height: 8),
-        _SaleTargetsList(
-          targets: _targets,
-          onEdit: _editTarget,
-          onDelete: _deleteTarget,
-          formatCurrency: _formatCurrency,
-          formatPercent: _formatPercent,
-          formatDate: _formatDate,
+        SectionReportModeToggle(
+          showReportMode: _showReportMode,
+          onChanged: (value) => setState(() => _showReportMode = value),
         ),
-        const SizedBox(height: 16),
-        const Text('Exit Strategy:'),
+        const SizedBox(height: 12),
+        if (_showReportMode)
+          _saleTargetReport()
+        else ...[
+          _SaleTargetsList(
+            targets: _targets,
+            onEdit: _editTarget,
+            onDelete: _deleteTarget,
+            formatCurrency: _formatCurrency,
+            formatPercent: _formatPercent,
+            formatDate: _formatDate,
+          ),
+          const SizedBox(height: 16),
+          const Text('Exit Strategy:'),
+        ],
         const SizedBox(height: 16),
         ReferenceLinks(
           title: 'Compound Interest References:',
@@ -444,6 +455,22 @@ class _SaleTargetContentState extends State<SaleTargetContent> {
           color: Colors.green,
         ),
       ],
+    );
+  }
+
+  Widget _saleTargetReport() {
+    return NotionBulletSummary(
+      title: '${widget.ticker.toUpperCase()} Sale Targets',
+      subtitle: '${_targets.length} target levels calculated.',
+      bullets: _targets.map((target) {
+        return NotionSummaryBullet(
+          label: target.title,
+          value:
+              'Principal ${_formatCurrency(target.principal)}, ${_formatPercent(target.growthRatePercent)} for ${target.years} years -> target ${_formatCurrency(target.targetPrice)} by ${_formatDate(target.maturityDate)}.',
+          icon: Icons.flag_outlined,
+          tone: AppSummaryTone.success,
+        );
+      }).toList(),
     );
   }
 }

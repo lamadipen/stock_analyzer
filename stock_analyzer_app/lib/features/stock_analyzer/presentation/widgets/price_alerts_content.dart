@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 
 class PriceAlertsContent extends StatefulWidget {
@@ -26,6 +27,7 @@ class _PriceAlertsContentState extends State<PriceAlertsContent> {
   bool _isSaving = false;
   bool _isRestoring = false;
   bool _hasSavedData = false;
+  bool _showReportMode = true;
   DateTime? _lastSavedAt;
   Timer? _saveDebounce;
 
@@ -195,71 +197,143 @@ class _PriceAlertsContentState extends State<PriceAlertsContent> {
           ],
         ),
         const SizedBox(height: 12),
-        const _TrackingNote(
-          text:
-              'Use this worksheet to track manual price levels. It does not fetch live prices yet, but it keeps your buy, sell, and margin-of-safety thresholds actionable.',
+        SectionReportModeToggle(
+          showReportMode: _showReportMode,
+          onChanged: (value) => setState(() => _showReportMode = value),
         ),
-        const SizedBox(height: 16),
-        LayoutBuilder(
-          builder: (context, constraints) {
-            final isNarrow = constraints.maxWidth < 760;
-            final fields = [
-              _PriceField(
-                controller: _currentPriceController,
-                label: 'Current Price',
-                icon: Icons.attach_money,
-              ),
-              _PriceField(
-                controller: _buyZoneController,
-                label: 'Buy Zone',
-                icon: Icons.shopping_cart_checkout,
-              ),
-              _PriceField(
-                controller: _sellTargetController,
-                label: 'Sell Target',
-                icon: Icons.flag,
-              ),
-              _PriceField(
-                controller: _marginOfSafetyController,
-                label: 'Margin-of-Safety Price',
-                icon: Icons.shield,
-              ),
-            ];
-
-            if (isNarrow) {
-              return Column(
-                children: fields
-                    .map(
-                      (field) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: field,
-                      ),
-                    )
-                    .toList(),
-              );
-            }
-
-            return Wrap(spacing: 12, runSpacing: 12, children: fields);
-          },
-        ),
-        const SizedBox(height: 16),
-        _TrackingSummary(
-          currentPrice: currentPrice,
-          buyZone: buyZone,
-          sellTarget: sellTarget,
-          marginOfSafety: marginOfSafety,
-          formatCurrency: _formatCurrency,
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _notesController,
-          minLines: 3,
-          maxLines: 6,
-          decoration: const InputDecoration(
-            labelText: 'Tracking Notes',
-            hintText: 'Add chart context, trigger notes, or alert plan.',
-            border: OutlineInputBorder(),
+        const SizedBox(height: 12),
+        if (_showReportMode)
+          _priceReport(
+            currentPrice: currentPrice,
+            buyZone: buyZone,
+            sellTarget: sellTarget,
+            marginOfSafety: marginOfSafety,
+          )
+        else ...[
+          const _TrackingNote(
+            text:
+                'Use this worksheet to track manual price levels. It does not fetch live prices yet, but it keeps your buy, sell, and margin-of-safety thresholds actionable.',
           ),
+          const SizedBox(height: 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final isNarrow = constraints.maxWidth < 760;
+              final fields = [
+                _PriceField(
+                  controller: _currentPriceController,
+                  label: 'Current Price',
+                  icon: Icons.attach_money,
+                ),
+                _PriceField(
+                  controller: _buyZoneController,
+                  label: 'Buy Zone',
+                  icon: Icons.shopping_cart_checkout,
+                ),
+                _PriceField(
+                  controller: _sellTargetController,
+                  label: 'Sell Target',
+                  icon: Icons.flag,
+                ),
+                _PriceField(
+                  controller: _marginOfSafetyController,
+                  label: 'Margin-of-Safety Price',
+                  icon: Icons.shield,
+                ),
+              ];
+
+              if (isNarrow) {
+                return Column(
+                  children: fields
+                      .map(
+                        (field) => Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: field,
+                        ),
+                      )
+                      .toList(),
+                );
+              }
+
+              return Wrap(spacing: 12, runSpacing: 12, children: fields);
+            },
+          ),
+          const SizedBox(height: 16),
+          _TrackingSummary(
+            currentPrice: currentPrice,
+            buyZone: buyZone,
+            sellTarget: sellTarget,
+            marginOfSafety: marginOfSafety,
+            formatCurrency: _formatCurrency,
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _notesController,
+            minLines: 3,
+            maxLines: 6,
+            decoration: const InputDecoration(
+              labelText: 'Tracking Notes',
+              hintText: 'Add chart context, trigger notes, or alert plan.',
+              border: OutlineInputBorder(),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _priceReport({
+    required double? currentPrice,
+    required double? buyZone,
+    required double? sellTarget,
+    required double? marginOfSafety,
+  }) {
+    return NotionBulletSummary(
+      title: '${widget.ticker.toUpperCase()} Price Alerts',
+      subtitle:
+          'Manual tracking levels for buy zone, sell target, and margin of safety.',
+      bullets: [
+        NotionSummaryBullet(
+          label: 'Current price',
+          value: currentPrice == null ? '' : _formatCurrency(currentPrice),
+          icon: Icons.attach_money,
+          tone: AppSummaryTone.neutral,
+        ),
+        NotionSummaryBullet(
+          label: 'Buy zone',
+          value: buyZone == null ? '' : _formatCurrency(buyZone),
+          icon: Icons.shopping_cart_checkout,
+          tone:
+              currentPrice != null && buyZone != null && currentPrice <= buyZone
+              ? AppSummaryTone.success
+              : AppSummaryTone.warning,
+        ),
+        NotionSummaryBullet(
+          label: 'Sell target',
+          value: sellTarget == null ? '' : _formatCurrency(sellTarget),
+          icon: Icons.flag_outlined,
+          tone:
+              currentPrice != null &&
+                  sellTarget != null &&
+                  currentPrice >= sellTarget
+              ? AppSummaryTone.success
+              : AppSummaryTone.warning,
+        ),
+        NotionSummaryBullet(
+          label: 'Margin-of-safety price',
+          value: marginOfSafety == null ? '' : _formatCurrency(marginOfSafety),
+          icon: Icons.shield_outlined,
+          tone:
+              currentPrice != null &&
+                  marginOfSafety != null &&
+                  currentPrice <= marginOfSafety
+              ? AppSummaryTone.success
+              : AppSummaryTone.neutral,
+        ),
+        NotionSummaryBullet(
+          label: 'Tracking notes',
+          value: _notesController.text.trim(),
+          icon: Icons.notes_outlined,
+          tone: AppSummaryTone.info,
         ),
       ],
     );
