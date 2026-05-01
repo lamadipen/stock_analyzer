@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:stock_analyzer_app/core/services/section_completion_rules.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/domain/analysis_section_models.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -179,10 +180,28 @@ class StockAnalysisStorage {
       final summary = decisionSummary is Map<String, dynamic>
           ? DecisionSummary.fromJson(decisionSummary)
           : null;
-      final reviewStatuses = decoded[_reviewStatusesKey];
-      final completedSections = reviewStatuses is Map<String, dynamic>
-          ? reviewStatuses.values.where((status) => status == 'complete').length
-          : 0;
+      final completedSections = SectionCompletionRules.completedCount(
+        sectionTitles: const [
+          'Decision Summary',
+          'AI Analysis Summary',
+          'Business Overview',
+          'Financial Highlights',
+          'Competitor Study',
+          'Economic Moat',
+          'Growth Driver',
+          'Valuation Method',
+          'Margin of Safety',
+          'Price Alerts / Target Tracking',
+          'Sale Target',
+          'Investment Risks',
+          'Implied Volatility (IV)',
+          'Institutional Ownership',
+          'Insider Activity',
+          'Sector Comparison',
+          'Short Term Investment',
+        ],
+        tickerData: decoded,
+      );
 
       summaries.add(
         SavedTickerSummary(

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:stock_analyzer_app/core/services/section_completion_rules.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/domain/analysis_section_models.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
@@ -82,6 +83,9 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
     final reviewStatuses = await StockAnalysisStorage.loadReviewStatuses(
       ticker: widget.ticker,
     );
+    final tickerData = await StockAnalysisStorage.loadTickerAnalysis(
+      ticker: widget.ticker,
+    );
 
     if (!mounted) {
       return;
@@ -96,6 +100,7 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
       valuationData: valuationData,
       marginOfSafetyData: marginOfSafetyData,
       reviewStatuses: reviewStatuses,
+      tickerData: tickerData,
     );
 
     if (decisionData == null) {
@@ -307,10 +312,23 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
     required Map<String, dynamic>? valuationData,
     required Map<String, dynamic>? marginOfSafetyData,
     required Map<String, String> reviewStatuses,
+    required Map<String, dynamic> tickerData,
   }) {
-    final moatStatus = reviewStatuses['Economic Moat'] ?? 'notStarted';
-    final valuationStatus = reviewStatuses['Valuation Method'] ?? 'notStarted';
-    final risksStatus = reviewStatuses['Investment Risks'] ?? 'notStarted';
+    final moatStatus = _completionAwareStatus(
+      'Economic Moat',
+      reviewStatuses,
+      tickerData,
+    );
+    final valuationStatus = _completionAwareStatus(
+      'Valuation Method',
+      reviewStatuses,
+      tickerData,
+    );
+    final risksStatus = _completionAwareStatus(
+      'Investment Risks',
+      reviewStatuses,
+      tickerData,
+    );
     final moatCheckedCount = _checkedItemCount(economicMoatData?['items']);
     final moatTotalCount = _listCount(economicMoatData?['items']);
     final valuationCheckedCount = _checkedItemCount(valuationData?['checked']);
@@ -405,6 +423,22 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
         reason: 'Derived from the four suggested decision fields.',
       ),
     );
+  }
+
+  String _completionAwareStatus(
+    String sectionTitle,
+    Map<String, String> reviewStatuses,
+    Map<String, dynamic> tickerData,
+  ) {
+    if (SectionCompletionRules.isComplete(
+      sectionTitle: sectionTitle,
+      tickerData: tickerData,
+    )) {
+      return 'complete';
+    }
+
+    final stored = reviewStatuses[sectionTitle] ?? 'notStarted';
+    return stored == 'complete' ? 'inReview' : stored;
   }
 
   int _checkedItemCount(Object? value) {

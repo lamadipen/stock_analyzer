@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:stock_analyzer_app/core/services/section_completion_rules.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_markdown_exporter.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
@@ -31,6 +32,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
   int _selectedIndex = 0;
   bool _isLoadingStatuses = true;
   final Map<String, _ReviewStatus> _reviewStatuses = {};
+  Map<String, dynamic> _tickerData = {};
 
   final List<_AnalysisSection> _sections = const [
     _AnalysisSection(
@@ -142,18 +144,43 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
     final statuses = await StockAnalysisStorage.loadReviewStatuses(
       ticker: widget.ticker,
     );
+    final tickerData = await StockAnalysisStorage.loadTickerAnalysis(
+      ticker: widget.ticker,
+    );
 
     if (!mounted) {
       return;
     }
 
     setState(() {
+      _tickerData = tickerData;
       for (final section in _sections) {
-        _reviewStatuses[section.title] = _statusFromStorage(
-          statuses[section.title],
+        _reviewStatuses[section.title] = _effectiveStatus(
+          section.title,
+          _statusFromStorage(statuses[section.title]),
         );
       }
       _isLoadingStatuses = false;
+    });
+  }
+
+  Future<void> _refreshCompletionRules() async {
+    final tickerData = await StockAnalysisStorage.loadTickerAnalysis(
+      ticker: widget.ticker,
+    );
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _tickerData = tickerData;
+      for (final section in _sections) {
+        _reviewStatuses[section.title] = _effectiveStatus(
+          section.title,
+          _reviewStatuses[section.title] ?? _ReviewStatus.notStarted,
+        );
+      }
     });
   }
 
@@ -161,7 +188,13 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
     _AnalysisSection section,
     _ReviewStatus status,
   ) async {
-    setState(() => _reviewStatuses[section.title] = status);
+    if (status == _ReviewStatus.complete) {
+      await _refreshCompletionRules();
+      return;
+    }
+
+    final effectiveStatus = _effectiveStatus(section.title, status);
+    setState(() => _reviewStatuses[section.title] = effectiveStatus);
     await StockAnalysisStorage.saveReviewStatus(
       ticker: widget.ticker,
       section: section.title,
@@ -178,6 +211,17 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
       (status) => status.name == value,
       orElse: () => _ReviewStatus.notStarted,
     );
+  }
+
+  _ReviewStatus _effectiveStatus(String sectionTitle, _ReviewStatus stored) {
+    if (SectionCompletionRules.isComplete(
+      sectionTitle: sectionTitle,
+      tickerData: _tickerData,
+    )) {
+      return _ReviewStatus.complete;
+    }
+
+    return stored == _ReviewStatus.complete ? _ReviewStatus.inReview : stored;
   }
 
   Color _statusColor(_ReviewStatus status) {
@@ -326,7 +370,10 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
           sections: _sections,
           selectedIndex: _selectedIndex,
           status: _statusFor(selectedSection),
-          onSelected: (index) => setState(() => _selectedIndex = index),
+          onSelected: (index) {
+            setState(() => _selectedIndex = index);
+            _refreshCompletionRules();
+          },
           onExport: _showExportDialog,
         ),
         const SizedBox(height: 8),
@@ -338,6 +385,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
             showStatusControl: false,
             onStatusChanged: (status) =>
                 _setReviewStatus(selectedSection, status),
+            onRefreshStatus: _refreshCompletionRules,
           ),
         ),
         const SizedBox(height: 8),
@@ -349,6 +397,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
           onNext: _goToNextSection,
           onStatusChanged: (status) =>
               _setReviewStatus(selectedSection, status),
+          onRefreshStatus: _refreshCompletionRules,
         ),
       ],
     );
@@ -401,6 +450,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
                 onChanged: (value) {
                   if (value != null) {
                     setState(() => _selectedIndex = value);
+                    _refreshCompletionRules();
                   }
                 },
               ),
@@ -412,6 +462,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
                   status: _statusFor(selectedSection),
                   onStatusChanged: (status) =>
                       _setReviewStatus(selectedSection, status),
+                  onRefreshStatus: _refreshCompletionRules,
                 ),
               ),
             ],
@@ -427,7 +478,10 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
                 sections: _sections,
                 statuses: _reviewStatuses,
                 selectedIndex: _selectedIndex,
-                onSelected: (index) => setState(() => _selectedIndex = index),
+                onSelected: (index) {
+                  setState(() => _selectedIndex = index);
+                  _refreshCompletionRules();
+                },
               ),
             ),
             const SizedBox(width: 12),
@@ -438,6 +492,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
                 status: _statusFor(selectedSection),
                 onStatusChanged: (status) =>
                     _setReviewStatus(selectedSection, status),
+                onRefreshStatus: _refreshCompletionRules,
               ),
             ),
           ],
@@ -466,6 +521,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
                 selectedTitle: selectedSection.title,
                 onSelected: (section) {
                   setState(() => _selectedIndex = _sections.indexOf(section));
+                  _refreshCompletionRules();
                 },
               ),
             );
@@ -484,6 +540,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
                   status: _statusFor(selectedSection),
                   onStatusChanged: (status) =>
                       _setReviewStatus(selectedSection, status),
+                  onRefreshStatus: _refreshCompletionRules,
                 ),
               ),
             ],
@@ -502,6 +559,7 @@ class _AnalysisResultsViewState extends State<AnalysisResultsView> {
                 status: _statusFor(selectedSection),
                 onStatusChanged: (status) =>
                     _setReviewStatus(selectedSection, status),
+                onRefreshStatus: _refreshCompletionRules,
               ),
             ),
           ],
@@ -761,6 +819,7 @@ class _MobileActionBar extends StatelessWidget {
     required this.onPrevious,
     required this.onNext,
     required this.onStatusChanged,
+    required this.onRefreshStatus,
   });
 
   final bool canGoPrevious;
@@ -769,6 +828,7 @@ class _MobileActionBar extends StatelessWidget {
   final VoidCallback onPrevious;
   final VoidCallback onNext;
   final ValueChanged<_ReviewStatus> onStatusChanged;
+  final VoidCallback onRefreshStatus;
 
   @override
   Widget build(BuildContext context) {
@@ -807,6 +867,7 @@ class _MobileActionBar extends StatelessWidget {
                 items: _ReviewStatus.values.map((status) {
                   return DropdownMenuItem(
                     value: status,
+                    enabled: status != _ReviewStatus.complete,
                     child: Text(status.label),
                   );
                 }).toList(),
@@ -816,6 +877,12 @@ class _MobileActionBar extends StatelessWidget {
                   }
                 },
               ),
+            ),
+            const SizedBox(width: 8),
+            IconButton.filledTonal(
+              tooltip: 'Validate section completion',
+              onPressed: onRefreshStatus,
+              icon: const Icon(Icons.task_alt),
             ),
             const SizedBox(width: 8),
             IconButton.filled(
@@ -893,6 +960,7 @@ class _SectionSurface extends StatelessWidget {
     required this.ticker,
     required this.status,
     required this.onStatusChanged,
+    required this.onRefreshStatus,
     this.showStatusControl = true,
   });
 
@@ -900,6 +968,7 @@ class _SectionSurface extends StatelessWidget {
   final String ticker;
   final _ReviewStatus status;
   final ValueChanged<_ReviewStatus> onStatusChanged;
+  final VoidCallback onRefreshStatus;
   final bool showStatusControl;
 
   @override
@@ -938,7 +1007,20 @@ class _SectionSurface extends StatelessWidget {
                   ),
                 ),
                 if (showStatusControl)
-                  _StatusDropdown(status: status, onChanged: onStatusChanged),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        tooltip: 'Validate section completion',
+                        onPressed: onRefreshStatus,
+                        icon: const Icon(Icons.task_alt),
+                      ),
+                      _StatusDropdown(
+                        status: status,
+                        onChanged: onStatusChanged,
+                      ),
+                    ],
+                  ),
               ],
             ),
           ),
@@ -1019,6 +1101,7 @@ class _StatusDropdown extends StatelessWidget {
       items: _ReviewStatus.values.map((status) {
         return DropdownMenuItem(
           value: status,
+          enabled: status != _ReviewStatus.complete,
           child: _StatusBadge(status: status),
         );
       }).toList(),

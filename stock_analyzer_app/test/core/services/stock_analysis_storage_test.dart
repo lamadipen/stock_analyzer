@@ -14,12 +14,14 @@ void main() {
         await StockAnalysisStorage.saveSection(
           ticker: 'AAPL',
           section: StockAnalysisStorage.decisionSummarySection,
-          data: {'finalAction': 'Buy Zone', 'riskLevel': 'Low'},
-        );
-        await StockAnalysisStorage.saveReviewStatus(
-          ticker: 'AAPL',
-          section: 'Decision Summary',
-          status: 'complete',
+          data: {
+            'businessQuality': 'Pass',
+            'valuation': 'Attractive',
+            'entryPoint': 'Good',
+            'finalAction': 'Buy Zone',
+            'riskLevel': 'Low',
+            'notes': 'Clear thesis.',
+          },
         );
         await Future<void>.delayed(const Duration(milliseconds: 2));
         await StockAnalysisStorage.saveSection(
