@@ -24,6 +24,7 @@ class StockAnalysisMarkdownExporter {
       ..writeln('Generated: ${_formatDateTime(DateTime.now())}')
       ..writeln();
 
+    _writeConnectedSectionContext(buffer, data);
     _writeDecisionSummary(
       buffer,
       data[StockAnalysisStorage.decisionSummarySection],
@@ -53,6 +54,57 @@ class StockAnalysisMarkdownExporter {
     _writeSaleTargets(buffer, data[StockAnalysisStorage.saleTargetSection]);
 
     return buffer.toString().trimRight();
+  }
+
+  static void _writeConnectedSectionContext(
+    StringBuffer buffer,
+    Map<String, dynamic> data,
+  ) {
+    final businessOverviewData = _asMap(
+      data[StockAnalysisStorage.businessOverviewSection],
+    );
+    if (businessOverviewData == null) {
+      return;
+    }
+
+    final businessOverview = BusinessOverview.fromJson(businessOverviewData);
+    final decisionData = _asMap(
+      data[StockAnalysisStorage.decisionSummarySection],
+    );
+    final decisionSummary = decisionData == null
+        ? null
+        : DecisionSummary.fromJson(decisionData);
+
+    buffer
+      ..writeln('## Connected Section Context')
+      ..writeln()
+      ..writeln(
+        '- **Business Overview Signal:** ${businessOverview.qualityLabel} (${businessOverview.qualityScore} score) -> Decision Business Quality ${businessOverview.decisionBusinessQuality}',
+      );
+
+    if (decisionSummary == null) {
+      buffer.writeln(
+        '- **Decision Summary Status:** Not saved yet. Use the Business Overview signal as the default business-quality input.',
+      );
+    } else {
+      buffer.writeln(
+        '- **Decision Summary Business Quality:** ${decisionSummary.businessQuality}',
+      );
+      if (decisionSummary.businessQuality !=
+          businessOverview.decisionBusinessQuality) {
+        buffer.writeln(
+          '- **Signal Mismatch:** Business Overview maps to ${businessOverview.decisionBusinessQuality}, but Decision Summary is set to ${decisionSummary.businessQuality}. Verify the reason before making a final recommendation.',
+        );
+      }
+    }
+
+    if (businessOverview.hasResearchNotes) {
+      buffer.writeln(
+        '- **AI Recommendation Context:** Weigh the business model, revenue sources, growth driver, earnings signal, and stock trend from Business Overview when writing the final takeaway.',
+      );
+    }
+
+    buffer.writeln();
   }
 
   static void _writeDecisionSummary(StringBuffer buffer, Object? value) {
@@ -132,29 +184,37 @@ class StockAnalysisMarkdownExporter {
       ..writeln('## Business Overview')
       ..writeln();
 
-    _writeBullet(buffer, 'Business Quality', data['qualityLabel']);
-    _writeBullet(buffer, 'Quality Score', data['qualityScore']);
-    _writeBullet(buffer, 'Business Model', data['businessModel']);
-    _writeBullet(buffer, 'Revenue Sources', data['revenueSources']);
-    _writeBullet(buffer, 'Main Segment', data['mainSegment']);
-    _writeBullet(buffer, 'Growth Driver', data['growthDriver']);
-    _writeBullet(buffer, 'Earnings Signal', data['earningsSignal']);
-    _writeBullet(buffer, 'Stock Trend', data['stockTrend']);
+    final overview = BusinessOverview.fromJson(data);
 
-    final items = data['items'];
-    if (items is List && items.isNotEmpty) {
+    _writeBullet(buffer, 'Business Quality', overview.qualityLabel);
+    _writeBullet(buffer, 'Quality Score', overview.qualityScore);
+    _writeBullet(
+      buffer,
+      'Decision Business Quality',
+      overview.decisionBusinessQuality,
+    );
+    _writeBullet(buffer, 'Business Model', overview.businessModel);
+    _writeBullet(buffer, 'Revenue Sources', overview.revenueSources);
+    _writeBullet(buffer, 'Main Segment', overview.mainSegment);
+    _writeBullet(buffer, 'Growth Driver', overview.growthDriver);
+    _writeBullet(buffer, 'Earnings Signal', overview.earningsSignal);
+    _writeBullet(buffer, 'Stock Trend', overview.stockTrend);
+
+    if (overview.items.isNotEmpty) {
       buffer
         ..writeln()
         ..writeln('### Business Quality Checklist')
         ..writeln();
 
-      for (final item in items.whereType<Map<String, dynamic>>()) {
-        final mark = item['isChecked'] == true ? 'x' : ' ';
-        buffer.writeln('- [$mark] ${item['title'] ?? 'Checklist item'}');
+      for (final item in overview.items) {
+        final mark = item.isChecked ? 'x' : ' ';
+        buffer.writeln(
+          '- [$mark] ${item.title.isEmpty ? 'Checklist item' : item.title}',
+        );
       }
     }
 
-    final rawResearch = '${data['rawResearch'] ?? ''}'.trim();
+    final rawResearch = overview.rawResearch.trim();
     if (rawResearch.isNotEmpty) {
       buffer
         ..writeln()

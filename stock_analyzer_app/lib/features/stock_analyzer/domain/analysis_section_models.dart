@@ -44,6 +44,112 @@ class DecisionSummary {
   }
 }
 
+class BusinessOverviewChecklistItem {
+  const BusinessOverviewChecklistItem({
+    required this.title,
+    required this.isChecked,
+  });
+
+  final String title;
+  final bool isChecked;
+
+  factory BusinessOverviewChecklistItem.fromJson(Map<String, dynamic> json) {
+    return BusinessOverviewChecklistItem(
+      title: _readString(json['title']),
+      isChecked: json['isChecked'] == true,
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {'title': title, 'isChecked': isChecked};
+  }
+}
+
+class BusinessOverview {
+  const BusinessOverview({
+    required this.savedAt,
+    required this.businessModel,
+    required this.revenueSources,
+    required this.mainSegment,
+    required this.growthDriver,
+    required this.earningsSignal,
+    required this.stockTrend,
+    required this.rawResearch,
+    required this.qualityScore,
+    required this.qualityLabel,
+    required this.items,
+  });
+
+  final DateTime? savedAt;
+  final String businessModel;
+  final String revenueSources;
+  final String mainSegment;
+  final String growthDriver;
+  final String earningsSignal;
+  final String stockTrend;
+  final String rawResearch;
+  final int qualityScore;
+  final String qualityLabel;
+  final List<BusinessOverviewChecklistItem> items;
+
+  String get decisionBusinessQuality {
+    return switch (qualityLabel) {
+      'Strong' => 'Pass',
+      'Weak' => 'Fail',
+      _ => 'Watch',
+    };
+  }
+
+  bool get hasResearchNotes {
+    return [
+      businessModel,
+      revenueSources,
+      mainSegment,
+      growthDriver,
+      earningsSignal,
+      stockTrend,
+    ].any((value) => value.trim().isNotEmpty);
+  }
+
+  factory BusinessOverview.fromJson(Map<String, dynamic> json) {
+    final items = json['items'];
+    return BusinessOverview(
+      savedAt: DateTime.tryParse('${json['savedAt'] ?? ''}'),
+      businessModel: _readString(json['businessModel']),
+      revenueSources: _readString(json['revenueSources']),
+      mainSegment: _readString(json['mainSegment']),
+      growthDriver: _readString(json['growthDriver']),
+      earningsSignal: _readString(json['earningsSignal']),
+      stockTrend: _readString(json['stockTrend']),
+      rawResearch: _readString(json['rawResearch']),
+      qualityScore: _readInt(json['qualityScore']),
+      qualityLabel: _readString(json['qualityLabel'], fallback: 'Mixed'),
+      items: items is List
+          ? items
+                .whereType<Map<String, dynamic>>()
+                .map(BusinessOverviewChecklistItem.fromJson)
+                .toList()
+          : const [],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'savedAt': savedAt?.toIso8601String(),
+      'businessModel': businessModel,
+      'revenueSources': revenueSources,
+      'mainSegment': mainSegment,
+      'growthDriver': growthDriver,
+      'earningsSignal': earningsSignal,
+      'stockTrend': stockTrend,
+      'rawResearch': rawResearch,
+      'qualityScore': qualityScore,
+      'qualityLabel': qualityLabel,
+      'items': items.map((item) => item.toJson()).toList(),
+    };
+  }
+}
+
 class SaleTarget {
   const SaleTarget({
     required this.title,

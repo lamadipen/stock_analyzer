@@ -19,6 +19,22 @@ void main() {
       expect(summary.toJson()['businessQuality'], 'Pass');
     });
 
+    test('BusinessOverview maps quality label into decision quality', () {
+      final overview = BusinessOverview.fromJson({
+        'qualityLabel': 'Strong',
+        'qualityScore': 5,
+        'businessModel': 'Subscription software',
+        'items': [
+          {'title': 'Clear business model', 'isChecked': true},
+        ],
+      });
+
+      expect(overview.decisionBusinessQuality, 'Pass');
+      expect(overview.hasResearchNotes, isTrue);
+      expect(overview.items.single.title, 'Clear business model');
+      expect(overview.toJson()['qualityLabel'], 'Strong');
+    });
+
     test('SaleTargetSection round trips targets and calculated values', () {
       final section = SaleTargetSection.fromJson({
         'savedAt': '2026-04-30T10:00:00.000',

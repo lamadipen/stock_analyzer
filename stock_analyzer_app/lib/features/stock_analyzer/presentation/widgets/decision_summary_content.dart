@@ -39,6 +39,7 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
   bool _hasSavedData = false;
   DateTime? _lastSavedAt;
   String? _businessOverviewMessage;
+  BusinessOverview? _businessOverview;
 
   String _businessQuality = 'Watch';
   String _valuation = 'Fair';
@@ -54,21 +55,41 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
   }
 
   Future<void> _loadSavedData() async {
-    final data = await StockAnalysisStorage.loadSection(
+    final decisionData = await StockAnalysisStorage.loadSection(
       ticker: widget.ticker,
       section: StockAnalysisStorage.decisionSummarySection,
+    );
+    final businessOverviewData = await StockAnalysisStorage.loadSection(
+      ticker: widget.ticker,
+      section: StockAnalysisStorage.businessOverviewSection,
     );
 
     if (!mounted) {
       return;
     }
 
-    if (data == null) {
-      setState(() => _isLoading = false);
+    final businessOverview = businessOverviewData == null
+        ? null
+        : BusinessOverview.fromJson(businessOverviewData);
+
+    if (decisionData == null) {
+      if (businessOverview != null) {
+        final note = _buildBusinessOverviewNote(businessOverview);
+        _businessQuality = businessOverview.decisionBusinessQuality;
+        _notesController.text = note;
+      }
+
+      setState(() {
+        _businessOverview = businessOverview;
+        _businessOverviewMessage = businessOverview == null
+            ? null
+            : 'Auto-loaded Business Overview: ${businessOverview.qualityLabel} mapped to ${businessOverview.decisionBusinessQuality}.';
+        _isLoading = false;
+      });
       return;
     }
 
-    final summary = DecisionSummary.fromJson(data);
+    final summary = DecisionSummary.fromJson(decisionData);
 
     _businessQuality = _readOption(
       summary.businessQuality,
@@ -90,6 +111,10 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
     _notesController.text = summary.notes;
 
     setState(() {
+      _businessOverview = businessOverview;
+      _businessOverviewMessage = businessOverview == null
+          ? null
+          : 'Business Overview signal available: ${businessOverview.qualityLabel} maps to ${businessOverview.decisionBusinessQuality}.';
       _isLoading = false;
       _hasSavedData = true;
       _lastSavedAt = summary.savedAt;
@@ -162,6 +187,7 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
       _lastSavedAt = null;
       _isSaving = false;
       _businessOverviewMessage = null;
+      _businessOverview = null;
     });
   }
 
@@ -188,15 +214,17 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
       return;
     }
 
-    final qualityLabel = '${data['qualityLabel'] ?? ''}'.trim();
-    final businessQuality = _businessQualityFromOverview(qualityLabel);
-    final overviewNote = _buildBusinessOverviewNote(data);
+    final businessOverview = BusinessOverview.fromJson(data);
+    final qualityLabel = businessOverview.qualityLabel;
+    final businessQuality = businessOverview.decisionBusinessQuality;
+    final overviewNote = _buildBusinessOverviewNote(businessOverview);
     final currentNotes = _removeExistingBusinessOverviewBlock(
       _notesController.text,
     ).trim();
 
     setState(() {
       _businessQuality = businessQuality;
+      _businessOverview = businessOverview;
       _notesController.text = [
         overviewNote,
         if (currentNotes.isNotEmpty) currentNotes,
@@ -208,26 +236,16 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
     await _saveNow();
   }
 
-  String _businessQualityFromOverview(String qualityLabel) {
-    return switch (qualityLabel) {
-      'Strong' => 'Pass',
-      'Weak' => 'Fail',
-      _ => 'Watch',
-    };
-  }
-
-  String _buildBusinessOverviewNote(Map<String, dynamic> data) {
-    final qualityLabel = '${data['qualityLabel'] ?? 'Not set'}'.trim();
-    final qualityScore = '${data['qualityScore'] ?? 'Not set'}'.trim();
+  String _buildBusinessOverviewNote(BusinessOverview businessOverview) {
     final lines = <String>[
       '[Business Overview]',
-      'Business quality: $qualityLabel ($qualityScore score)',
-      _noteLine('Business model', data['businessModel']),
-      _noteLine('Revenue sources', data['revenueSources']),
-      _noteLine('Main segment', data['mainSegment']),
-      _noteLine('Growth driver', data['growthDriver']),
-      _noteLine('Earnings signal', data['earningsSignal']),
-      _noteLine('Stock trend', data['stockTrend']),
+      'Business quality: ${businessOverview.qualityLabel} (${businessOverview.qualityScore} score)',
+      _noteLine('Business model', businessOverview.businessModel),
+      _noteLine('Revenue sources', businessOverview.revenueSources),
+      _noteLine('Main segment', businessOverview.mainSegment),
+      _noteLine('Growth driver', businessOverview.growthDriver),
+      _noteLine('Earnings signal', businessOverview.earningsSignal),
+      _noteLine('Stock trend', businessOverview.stockTrend),
       '[/Business Overview]',
     ];
 
@@ -298,6 +316,21 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
           ),
         ),
         const SizedBox(height: 12),
+        if (_businessOverview != null) ...[
+          AppNote(
+            title: 'Connected Business Overview',
+            icon: Icons.account_tree_outlined,
+            tone: _businessOverview!.qualityLabel == 'Strong'
+                ? AppNoteTone.success
+                : _businessOverview!.qualityLabel == 'Weak'
+                ? AppNoteTone.risk
+                : AppNoteTone.warning,
+            child: Text(
+              '${_businessOverview!.qualityLabel} business overview maps to $_businessQuality for Decision Summary.',
+            ),
+          ),
+          const SizedBox(height: 12),
+        ],
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -305,7 +338,7 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
             OutlinedButton.icon(
               onPressed: _applyBusinessOverview,
               icon: const Icon(Icons.account_tree_outlined),
-              label: const Text('Use Business Overview'),
+              label: const Text('Refresh Business Overview'),
             ),
           ],
         ),
