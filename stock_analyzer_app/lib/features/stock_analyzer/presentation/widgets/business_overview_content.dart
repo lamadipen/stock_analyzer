@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/ollama_ai_service.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/core/utils/ticker_links.dart';
-import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
@@ -43,6 +43,7 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
   bool _isGenerating = false;
   bool _hasSavedData = false;
   bool _suspendAutosave = false;
+  bool _showReportMode = false;
   DateTime? _lastSavedAt;
   String? _errorMessage;
   late List<_BusinessChecklistItem> _items = _defaultItems();
@@ -312,27 +313,6 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     };
   }
 
-  String get _reportPreview {
-    final values = [
-      ('Business model', _businessModelController.text),
-      ('Revenue sources', _revenueSourcesController.text),
-      ('Main segment', _mainSegmentController.text),
-      ('Growth driver', _growthDriverController.text),
-      ('Earnings signal', _earningsSignalController.text),
-      ('Stock trend', _stockTrendController.text),
-    ];
-
-    final filled = values
-        .where((entry) => entry.$2.trim().isNotEmpty)
-        .map((entry) => '- ${entry.$1}: ${entry.$2.trim()}')
-        .join('\n');
-
-    return [
-      '${widget.ticker.toUpperCase()} business quality: $_qualityLabel ($_qualityScore/${_items.length}).',
-      if (filled.isNotEmpty) filled,
-    ].join('\n\n');
-  }
-
   @override
   void dispose() {
     _saveDebounce?.cancel();
@@ -378,159 +358,233 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
           ],
         ),
         const SizedBox(height: 12),
-        AppNote(
-          title: 'Business quality: $_qualityLabel',
-          icon: Icons.lightbulb_outline,
-          tone: _qualityTone,
-          child: Text(
-            'Score: $_qualityScore/${_items.length}. Understand what ${widget.ticker.toUpperCase()} does, how revenue is generated, and whether earnings expectations support the business story.',
-          ),
+        _SectionModeToggle(
+          showReportMode: _showReportMode,
+          onChanged: (value) => setState(() => _showReportMode = value),
         ),
-        const SizedBox(height: 16),
-        ChecklistCard(
-          items: _items.map((item) {
-            return ChecklistCardItem(
-              title: item.title,
-              subtitle: item.subtitle,
-              isChecked: item.isChecked,
-            );
-          }).toList(),
-          onChanged: (index, isChecked) {
-            setState(() {
-              _items[index] = _items[index].copyWith(isChecked: isChecked);
-            });
-            _scheduleSave();
-          },
-        ),
-        const SizedBox(height: 16),
-        _rawResearchField(),
-        const SizedBox(height: 16),
-        _AiDraftControls(
-          provider: _provider,
-          baseUrlController: _baseUrlController,
-          modelController: _modelController,
-          apiKeyController: _apiKeyController,
-          isGenerating: _isGenerating,
-          onProviderChanged: (provider) {
-            setState(() {
-              _provider = provider;
-              _modelController.text = _defaultModelFor(provider);
-              _errorMessage = null;
-            });
-            _scheduleSave();
-          },
-          onGenerate: _generateDraft,
-        ),
-        if (_isGenerating) ...[
-          const SizedBox(height: 12),
+        const SizedBox(height: 12),
+        if (_showReportMode) ...[
+          _businessOverviewReport(),
+          const SizedBox(height: 16),
+          ReferenceLinks(title: 'Business Overview References:', links: links),
+        ] else ...[
           AppNote(
-            title: 'Generating business overview',
-            icon: Icons.hourglass_top,
-            tone: AppNoteTone.info,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const LinearProgressIndicator(),
-                const SizedBox(height: 10),
-                Text(
-                  'Waiting for ${_provider.label}. Local models can take a little longer.',
-                ),
-              ],
+            title: 'Business quality: $_qualityLabel',
+            icon: Icons.lightbulb_outline,
+            tone: _qualityTone,
+            child: Text(
+              'Score: $_qualityScore/${_items.length}. Understand what ${widget.ticker.toUpperCase()} does, how revenue is generated, and whether earnings expectations support the business story.',
             ),
           ),
-        ],
-        if (_errorMessage != null) ...[
-          const SizedBox(height: 12),
-          AppNote(
-            tone: AppNoteTone.risk,
-            title: 'AI draft issue',
-            icon: Icons.error_outline,
-            child: Text(_errorMessage!),
+          const SizedBox(height: 16),
+          ChecklistCard(
+            items: _items.map((item) {
+              return ChecklistCardItem(
+                title: item.title,
+                subtitle: item.subtitle,
+                isChecked: item.isChecked,
+              );
+            }).toList(),
+            onChanged: (index, isChecked) {
+              setState(() {
+                _items[index] = _items[index].copyWith(isChecked: isChecked);
+              });
+              _scheduleSave();
+            },
           ),
-        ],
-        const SizedBox(height: 16),
-        const Text(
-          'Business Research Notes',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 8),
-        EditableTable(
-          rows: [
-            EditableTableRow(
-              label: 'Business model',
-              value: _textField(
-                controller: _businessModelController,
-                hintText:
-                    'Example: Adobe sells creative, document, and digital experience software to consumers and enterprises.',
-              ),
-            ),
-            EditableTableRow(
-              label: 'Revenue sources',
-              value: _textField(
-                controller: _revenueSourcesController,
-                hintText:
-                    'Subscriptions, services, licensing, advertising, transactions, hardware, or other streams.',
-                minLines: 2,
-              ),
-            ),
-            EditableTableRow(
-              label: 'Main segment',
-              value: _textField(
-                controller: _mainSegmentController,
-                hintText:
-                    'Largest revenue segment and any segment growing faster than the rest.',
-              ),
-            ),
-            EditableTableRow(
-              label: 'Growth driver',
-              value: _textField(
-                controller: _growthDriverController,
-                hintText:
-                    'Products, customers, geographies, acquisitions, AI, pricing, or market expansion.',
-                minLines: 2,
-              ),
-            ),
-            EditableTableRow(
-              label: 'Earnings signal',
-              value: _textField(
-                controller: _earningsSignalController,
-                hintText:
-                    'Next earnings date, expected EPS, whisper expectation, recent beats/misses, and expected reaction.',
-                minLines: 2,
-              ),
-            ),
-            EditableTableRow(
-              label: 'Stock trend',
-              value: _textField(
-                controller: _stockTrendController,
-                hintText:
-                    '1-year, 5-year, and max chart read. Note whether the trend confirms or challenges the thesis.',
-                minLines: 2,
+          const SizedBox(height: 16),
+          _rawResearchField(),
+          const SizedBox(height: 16),
+          _AiDraftControls(
+            provider: _provider,
+            baseUrlController: _baseUrlController,
+            modelController: _modelController,
+            apiKeyController: _apiKeyController,
+            isGenerating: _isGenerating,
+            onProviderChanged: (provider) {
+              setState(() {
+                _provider = provider;
+                _modelController.text = _defaultModelFor(provider);
+                _errorMessage = null;
+              });
+              _scheduleSave();
+            },
+            onGenerate: _generateDraft,
+          ),
+          if (_isGenerating) ...[
+            const SizedBox(height: 12),
+            AppNote(
+              title: 'Generating business overview',
+              icon: Icons.hourglass_top,
+              tone: AppNoteTone.info,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const LinearProgressIndicator(),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Waiting for ${_provider.label}. Local models can take a little longer.',
+                  ),
+                ],
               ),
             ),
           ],
-        ),
-        const SizedBox(height: 16),
-        _ReportPreviewCard(report: _reportPreview),
-        const SizedBox(height: 16),
-        const AppNote(
-          tone: AppNoteTone.info,
-          child: Text(
-            'Example for Adobe: Digital Media and Digital Experience are the key operating segments. Creative Cloud, Document Cloud, and enterprise experience tools explain most of the business model, while EPS expectations and price reaction help validate near-term sentiment.',
+          if (_errorMessage != null) ...[
+            const SizedBox(height: 12),
+            AppNote(
+              tone: AppNoteTone.risk,
+              title: 'AI draft issue',
+              icon: Icons.error_outline,
+              child: Text(_errorMessage!),
+            ),
+          ],
+          const SizedBox(height: 16),
+          const Text(
+            'Business Research Notes',
+            style: TextStyle(fontWeight: FontWeight.w600),
           ),
-        ),
-        const SizedBox(height: 16),
-        const AppNote(
-          tone: AppNoteTone.warning,
-          icon: Icons.fact_check_outlined,
-          child: Text(
-            'Do not rely only on product popularity. Confirm revenue growth, profitability, earnings consistency, and whether recent acquisitions improve the core business.',
+          const SizedBox(height: 8),
+          EditableTable(
+            rows: [
+              EditableTableRow(
+                label: 'Business model',
+                value: _textField(
+                  controller: _businessModelController,
+                  hintText:
+                      'Example: Adobe sells creative, document, and digital experience software to consumers and enterprises.',
+                ),
+              ),
+              EditableTableRow(
+                label: 'Revenue sources',
+                value: _textField(
+                  controller: _revenueSourcesController,
+                  hintText:
+                      'Subscriptions, services, licensing, advertising, transactions, hardware, or other streams.',
+                  minLines: 2,
+                ),
+              ),
+              EditableTableRow(
+                label: 'Main segment',
+                value: _textField(
+                  controller: _mainSegmentController,
+                  hintText:
+                      'Largest revenue segment and any segment growing faster than the rest.',
+                ),
+              ),
+              EditableTableRow(
+                label: 'Growth driver',
+                value: _textField(
+                  controller: _growthDriverController,
+                  hintText:
+                      'Products, customers, geographies, acquisitions, AI, pricing, or market expansion.',
+                  minLines: 2,
+                ),
+              ),
+              EditableTableRow(
+                label: 'Earnings signal',
+                value: _textField(
+                  controller: _earningsSignalController,
+                  hintText:
+                      'Next earnings date, expected EPS, whisper expectation, recent beats/misses, and expected reaction.',
+                  minLines: 2,
+                ),
+              ),
+              EditableTableRow(
+                label: 'Stock trend',
+                value: _textField(
+                  controller: _stockTrendController,
+                  hintText:
+                      '1-year, 5-year, and max chart read. Note whether the trend confirms or challenges the thesis.',
+                  minLines: 2,
+                ),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 16),
-        ReferenceLinks(title: 'Business Overview References:', links: links),
+          const SizedBox(height: 16),
+          _businessOverviewReport(),
+          const SizedBox(height: 16),
+          const AppNote(
+            tone: AppNoteTone.info,
+            child: Text(
+              'Example for Adobe: Digital Media and Digital Experience are the key operating segments. Creative Cloud, Document Cloud, and enterprise experience tools explain most of the business model, while EPS expectations and price reaction help validate near-term sentiment.',
+            ),
+          ),
+          const SizedBox(height: 16),
+          const AppNote(
+            tone: AppNoteTone.warning,
+            icon: Icons.fact_check_outlined,
+            child: Text(
+              'Do not rely only on product popularity. Confirm revenue growth, profitability, earnings consistency, and whether recent acquisitions improve the core business.',
+            ),
+          ),
+          const SizedBox(height: 16),
+          ReferenceLinks(title: 'Business Overview References:', links: links),
+        ],
       ],
     );
+  }
+
+  Widget _businessOverviewReport() {
+    return NotionBulletSummary(
+      title: '${widget.ticker.toUpperCase()} Business Overview',
+      subtitle:
+          'Business quality: $_qualityLabel ($_qualityScore/${_items.length}).',
+      bullets: [
+        NotionSummaryBullet(
+          label: 'Business model',
+          value: _businessModelController.text.trim(),
+          icon: Icons.business_center_outlined,
+          tone: AppSummaryTone.info,
+        ),
+        NotionSummaryBullet(
+          label: 'Revenue sources',
+          value: _revenueSourcesController.text.trim(),
+          icon: Icons.payments_outlined,
+          tone: AppSummaryTone.info,
+        ),
+        NotionSummaryBullet(
+          label: 'Main segment',
+          value: _mainSegmentController.text.trim(),
+          icon: Icons.account_tree_outlined,
+          tone: AppSummaryTone.neutral,
+        ),
+        NotionSummaryBullet(
+          label: 'Growth driver',
+          value: _growthDriverController.text.trim(),
+          icon: Icons.trending_up,
+          tone: AppSummaryTone.success,
+        ),
+        NotionSummaryBullet(
+          label: 'Earnings signal',
+          value: _earningsSignalController.text.trim(),
+          icon: Icons.event_available_outlined,
+          tone: AppSummaryTone.warning,
+        ),
+        NotionSummaryBullet(
+          label: 'Stock trend',
+          value: _stockTrendController.text.trim(),
+          icon: Icons.show_chart,
+          tone: AppSummaryTone.neutral,
+        ),
+        NotionSummaryBullet(
+          label: 'Checked quality signals',
+          value: _checkedQualitySignals,
+          icon: Icons.checklist,
+          tone: _qualityLabel == 'Strong'
+              ? AppSummaryTone.success
+              : _qualityLabel == 'Weak'
+              ? AppSummaryTone.risk
+              : AppSummaryTone.warning,
+        ),
+      ],
+    );
+  }
+
+  String get _checkedQualitySignals {
+    final checked = _items.where((item) => item.isChecked).map((item) {
+      return item.title;
+    }).toList();
+    return checked.isEmpty ? '' : checked.join(', ');
   }
 
   Widget _textField({
@@ -702,38 +756,32 @@ class _AiDraftControls extends StatelessWidget {
   }
 }
 
-class _ReportPreviewCard extends StatelessWidget {
-  const _ReportPreviewCard({required this.report});
+class _SectionModeToggle extends StatelessWidget {
+  const _SectionModeToggle({
+    required this.showReportMode,
+    required this.onChanged,
+  });
 
-  final String report;
+  final bool showReportMode;
+  final ValueChanged<bool> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: AnalysisColors.reference.shade50,
-        border: Border.all(color: AnalysisColors.reference.shade100),
-        borderRadius: BorderRadius.circular(8),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.article_outlined, size: 20),
-              SizedBox(width: 8),
-              Text(
-                'Report Preview',
-                style: TextStyle(fontWeight: FontWeight.w700),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          SelectableText(report),
-        ],
-      ),
+    return SegmentedButton<bool>(
+      segments: const [
+        ButtonSegment(
+          value: false,
+          icon: Icon(Icons.edit_note),
+          label: Text('Workspace'),
+        ),
+        ButtonSegment(
+          value: true,
+          icon: Icon(Icons.article_outlined),
+          label: Text('Report'),
+        ),
+      ],
+      selected: {showReportMode},
+      onSelectionChanged: (values) => onChanged(values.first),
     );
   }
 }

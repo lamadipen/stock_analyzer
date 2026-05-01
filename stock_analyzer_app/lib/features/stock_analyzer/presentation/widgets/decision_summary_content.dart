@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:stock_analyzer_app/core/services/stock_analysis_storage.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/domain/analysis_section_models.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/theme/analysis_colors.dart';
+import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/notion_bullet_summary.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/section_save_status_chip.dart';
 import 'package:stock_analyzer_app/features/stock_analyzer/presentation/widgets/shared_analysis_widgets.dart';
 
@@ -37,6 +38,7 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
   bool _isLoading = true;
   bool _isSaving = false;
   bool _hasSavedData = false;
+  bool _showReportMode = false;
   DateTime? _lastSavedAt;
   String? _businessOverviewMessage;
   BusinessOverview? _businessOverview;
@@ -316,100 +318,182 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
           ),
         ),
         const SizedBox(height: 12),
-        if (_businessOverview != null) ...[
-          AppNote(
-            title: 'Connected Business Overview',
-            icon: Icons.account_tree_outlined,
-            tone: _businessOverview!.qualityLabel == 'Strong'
-                ? AppNoteTone.success
-                : _businessOverview!.qualityLabel == 'Weak'
-                ? AppNoteTone.risk
-                : AppNoteTone.warning,
-            child: Text(
-              '${_businessOverview!.qualityLabel} business overview maps to $_businessQuality for Decision Summary.',
+        _SectionModeToggle(
+          showReportMode: _showReportMode,
+          onChanged: (value) => setState(() => _showReportMode = value),
+        ),
+        const SizedBox(height: 12),
+        if (_showReportMode) ...[
+          _decisionSummaryReport(),
+        ] else ...[
+          if (_businessOverview != null) ...[
+            AppNote(
+              title: 'Connected Business Overview',
+              icon: Icons.account_tree_outlined,
+              tone: _businessOverview!.qualityLabel == 'Strong'
+                  ? AppNoteTone.success
+                  : _businessOverview!.qualityLabel == 'Weak'
+                  ? AppNoteTone.risk
+                  : AppNoteTone.warning,
+              child: Text(
+                '${_businessOverview!.qualityLabel} business overview maps to $_businessQuality for Decision Summary.',
+              ),
             ),
+            const SizedBox(height: 12),
+          ],
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: _applyBusinessOverview,
+                icon: const Icon(Icons.account_tree_outlined),
+                label: const Text('Refresh Business Overview'),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
-        ],
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            OutlinedButton.icon(
-              onPressed: _applyBusinessOverview,
-              icon: const Icon(Icons.account_tree_outlined),
-              label: const Text('Refresh Business Overview'),
+          if (_businessOverviewMessage != null) ...[
+            const SizedBox(height: 12),
+            AppNote(
+              title: 'Business Overview sync',
+              icon: Icons.sync_alt,
+              tone: _businessOverviewMessage!.startsWith('No saved')
+                  ? AppNoteTone.warning
+                  : AppNoteTone.success,
+              child: Text(_businessOverviewMessage!),
             ),
           ],
-        ),
-        if (_businessOverviewMessage != null) ...[
-          const SizedBox(height: 12),
-          AppNote(
-            title: 'Business Overview sync',
-            icon: Icons.sync_alt,
-            tone: _businessOverviewMessage!.startsWith('No saved')
-                ? AppNoteTone.warning
-                : AppNoteTone.success,
-            child: Text(_businessOverviewMessage!),
+          const SizedBox(height: 16),
+          EditableTable(
+            rows: [
+              EditableTableRow(
+                label: 'Business Quality',
+                value: _optionField(
+                  value: _businessQuality,
+                  options: _businessQualityOptions,
+                  onChanged: (value) =>
+                      _setValue(() => _businessQuality = value),
+                ),
+              ),
+              EditableTableRow(
+                label: 'Valuation',
+                value: _optionField(
+                  value: _valuation,
+                  options: _valuationOptions,
+                  onChanged: (value) => _setValue(() => _valuation = value),
+                ),
+              ),
+              EditableTableRow(
+                label: 'Entry Point',
+                value: _optionField(
+                  value: _entryPoint,
+                  options: _entryPointOptions,
+                  onChanged: (value) => _setValue(() => _entryPoint = value),
+                ),
+              ),
+              EditableTableRow(
+                label: 'Risk Level',
+                value: _optionField(
+                  value: _riskLevel,
+                  options: _riskLevelOptions,
+                  onChanged: (value) => _setValue(() => _riskLevel = value),
+                ),
+              ),
+              EditableTableRow(
+                label: 'Final Action',
+                value: _optionField(
+                  value: _finalAction,
+                  options: _finalActionOptions,
+                  onChanged: (value) => _setValue(() => _finalAction = value),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _notesController,
+            minLines: 4,
+            maxLines: 8,
+            decoration: const InputDecoration(
+              labelText: 'Decision Notes',
+              hintText:
+                  'Summarize why this ticker belongs in this action bucket.',
+              border: OutlineInputBorder(),
+              alignLabelWithHint: true,
+            ),
           ),
         ],
-        const SizedBox(height: 16),
-        EditableTable(
-          rows: [
-            EditableTableRow(
-              label: 'Business Quality',
-              value: _optionField(
-                value: _businessQuality,
-                options: _businessQualityOptions,
-                onChanged: (value) => _setValue(() => _businessQuality = value),
-              ),
-            ),
-            EditableTableRow(
-              label: 'Valuation',
-              value: _optionField(
-                value: _valuation,
-                options: _valuationOptions,
-                onChanged: (value) => _setValue(() => _valuation = value),
-              ),
-            ),
-            EditableTableRow(
-              label: 'Entry Point',
-              value: _optionField(
-                value: _entryPoint,
-                options: _entryPointOptions,
-                onChanged: (value) => _setValue(() => _entryPoint = value),
-              ),
-            ),
-            EditableTableRow(
-              label: 'Risk Level',
-              value: _optionField(
-                value: _riskLevel,
-                options: _riskLevelOptions,
-                onChanged: (value) => _setValue(() => _riskLevel = value),
-              ),
-            ),
-            EditableTableRow(
-              label: 'Final Action',
-              value: _optionField(
-                value: _finalAction,
-                options: _finalActionOptions,
-                onChanged: (value) => _setValue(() => _finalAction = value),
-              ),
-            ),
-          ],
+      ],
+    );
+  }
+
+  Widget _decisionSummaryReport() {
+    return NotionBulletSummary(
+      title: '${widget.ticker.toUpperCase()} Decision Summary',
+      subtitle:
+          'Final action: $_finalAction. Business quality is $_businessQuality, valuation is $_valuation, entry point is $_entryPoint, and risk is $_riskLevel.',
+      bullets: [
+        NotionSummaryBullet(
+          label: 'Final action',
+          value: _finalAction,
+          icon: Icons.flag_outlined,
+          tone: _finalAction == 'Buy Zone'
+              ? AppSummaryTone.success
+              : _finalAction == 'Avoid'
+              ? AppSummaryTone.risk
+              : AppSummaryTone.warning,
         ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _notesController,
-          minLines: 4,
-          maxLines: 8,
-          decoration: const InputDecoration(
-            labelText: 'Decision Notes',
-            hintText:
-                'Summarize why this ticker belongs in this action bucket.',
-            border: OutlineInputBorder(),
-            alignLabelWithHint: true,
-          ),
+        NotionSummaryBullet(
+          label: 'Business quality',
+          value: _businessQuality,
+          icon: Icons.business_center_outlined,
+          tone: _businessQuality == 'Pass'
+              ? AppSummaryTone.success
+              : _businessQuality == 'Fail'
+              ? AppSummaryTone.risk
+              : AppSummaryTone.warning,
+        ),
+        NotionSummaryBullet(
+          label: 'Valuation',
+          value: _valuation,
+          icon: Icons.price_check,
+          tone: _valuation == 'Attractive'
+              ? AppSummaryTone.success
+              : _valuation == 'Expensive'
+              ? AppSummaryTone.risk
+              : AppSummaryTone.warning,
+        ),
+        NotionSummaryBullet(
+          label: 'Entry point',
+          value: _entryPoint,
+          icon: Icons.login,
+          tone: _entryPoint == 'Good'
+              ? AppSummaryTone.success
+              : AppSummaryTone.warning,
+        ),
+        NotionSummaryBullet(
+          label: 'Risk level',
+          value: _riskLevel,
+          icon: Icons.warning_amber,
+          tone: _riskLevel == 'Low'
+              ? AppSummaryTone.success
+              : _riskLevel == 'High'
+              ? AppSummaryTone.risk
+              : AppSummaryTone.warning,
+        ),
+        NotionSummaryBullet(
+          label: 'Business Overview signal',
+          value: _businessOverview == null
+              ? ''
+              : '${_businessOverview!.qualityLabel} maps to ${_businessOverview!.decisionBusinessQuality}',
+          icon: Icons.account_tree_outlined,
+          tone: AppSummaryTone.info,
+        ),
+        NotionSummaryBullet(
+          label: 'Decision notes',
+          value: _notesController.text.trim(),
+          icon: Icons.notes_outlined,
+          tone: AppSummaryTone.neutral,
         ),
       ],
     );
@@ -455,6 +539,36 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
           onChanged(value);
         }
       },
+    );
+  }
+}
+
+class _SectionModeToggle extends StatelessWidget {
+  const _SectionModeToggle({
+    required this.showReportMode,
+    required this.onChanged,
+  });
+
+  final bool showReportMode;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    return SegmentedButton<bool>(
+      segments: const [
+        ButtonSegment(
+          value: false,
+          icon: Icon(Icons.edit_note),
+          label: Text('Workspace'),
+        ),
+        ButtonSegment(
+          value: true,
+          icon: Icon(Icons.article_outlined),
+          label: Text('Report'),
+        ),
+      ],
+      selected: {showReportMode},
+      onSelectionChanged: (values) => onChanged(values.first),
     );
   }
 }
