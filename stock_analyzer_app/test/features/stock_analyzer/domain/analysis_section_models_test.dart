@@ -27,6 +27,9 @@ void main() {
         'analystRating': 'Buy consensus',
         'analystRatingCheckedAt': '2026-05-01T09:30:00.000',
         'conclusion': 'Strong business; verify valuation.',
+        'companyDescriptionResearch': 'Sells creative software.',
+        'revenueSegmentsResearch': 'Digital Media is largest.',
+        'epsDetailsResearch': 'EPS estimate needs verification.',
         'items': [
           {'title': 'Clear business model', 'isChecked': true},
         ],
@@ -37,12 +40,19 @@ void main() {
       expect(overview.analystRating, 'Buy consensus');
       expect(overview.analystRatingCheckedAt?.year, 2026);
       expect(overview.conclusion, 'Strong business; verify valuation.');
+      expect(overview.companyDescriptionResearch, 'Sells creative software.');
+      expect(overview.revenueSegmentsResearch, 'Digital Media is largest.');
+      expect(overview.epsDetailsResearch, 'EPS estimate needs verification.');
       expect(overview.items.single.title, 'Clear business model');
       expect(overview.toJson()['qualityLabel'], 'Strong');
       expect(overview.toJson()['analystRating'], 'Buy consensus');
       expect(
         overview.toJson()['conclusion'],
         'Strong business; verify valuation.',
+      );
+      expect(
+        overview.toJson()['companyDescriptionResearch'],
+        'Sells creative software.',
       );
     });
 

@@ -231,17 +231,30 @@ class StockAnalysisMarkdownExporter {
       }
     }
 
-    final rawResearch = overview.rawResearch.trim();
-    if (rawResearch.isNotEmpty) {
+    final sourceResearch = <String, String>{
+      'Company Description': overview.companyDescriptionResearch,
+      'Revenue Segment Table': overview.revenueSegmentsResearch,
+      'EPS / Earnings Details': overview.epsDetailsResearch,
+      'Other Research Notes': overview.rawResearch,
+    }..removeWhere((_, value) => value.trim().isEmpty);
+
+    if (sourceResearch.isNotEmpty) {
       buffer
         ..writeln()
-        ..writeln('### Raw Research')
+        ..writeln('### Source Research')
         ..writeln()
         ..writeln(
           '_Last pasted/edited: ${_formatOptionalDateTime(overview.rawResearchPastedAt)}_',
         )
-        ..writeln()
-        ..writeln(rawResearch);
+        ..writeln();
+
+      for (final entry in sourceResearch.entries) {
+        buffer
+          ..writeln('#### ${entry.key}')
+          ..writeln()
+          ..writeln(entry.value.trim())
+          ..writeln();
+      }
     }
 
     buffer.writeln();

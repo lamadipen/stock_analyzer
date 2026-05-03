@@ -76,6 +76,9 @@ class BusinessOverview {
     required this.analystRating,
     required this.stockTrend,
     required this.conclusion,
+    required this.companyDescriptionResearch,
+    required this.revenueSegmentsResearch,
+    required this.epsDetailsResearch,
     required this.rawResearch,
     required this.earningsSignalCheckedAt,
     required this.analystRatingCheckedAt,
@@ -95,6 +98,9 @@ class BusinessOverview {
   final String analystRating;
   final String stockTrend;
   final String conclusion;
+  final String companyDescriptionResearch;
+  final String revenueSegmentsResearch;
+  final String epsDetailsResearch;
   final String rawResearch;
   final DateTime? earningsSignalCheckedAt;
   final DateTime? analystRatingCheckedAt;
@@ -122,6 +128,9 @@ class BusinessOverview {
       analystRating,
       stockTrend,
       conclusion,
+      companyDescriptionResearch,
+      revenueSegmentsResearch,
+      epsDetailsResearch,
     ].any((value) => value.trim().isNotEmpty);
   }
 
@@ -137,6 +146,11 @@ class BusinessOverview {
       analystRating: _readString(json['analystRating']),
       stockTrend: _readString(json['stockTrend']),
       conclusion: _readString(json['conclusion']),
+      companyDescriptionResearch: _readString(
+        json['companyDescriptionResearch'],
+      ),
+      revenueSegmentsResearch: _readString(json['revenueSegmentsResearch']),
+      epsDetailsResearch: _readString(json['epsDetailsResearch']),
       rawResearch: _readString(json['rawResearch']),
       earningsSignalCheckedAt: DateTime.tryParse(
         '${json['earningsSignalCheckedAt'] ?? ''}',
@@ -172,6 +186,9 @@ class BusinessOverview {
       'analystRating': analystRating,
       'stockTrend': stockTrend,
       'conclusion': conclusion,
+      'companyDescriptionResearch': companyDescriptionResearch,
+      'revenueSegmentsResearch': revenueSegmentsResearch,
+      'epsDetailsResearch': epsDetailsResearch,
       'rawResearch': rawResearch,
       'earningsSignalCheckedAt': earningsSignalCheckedAt?.toIso8601String(),
       'analystRatingCheckedAt': analystRatingCheckedAt?.toIso8601String(),

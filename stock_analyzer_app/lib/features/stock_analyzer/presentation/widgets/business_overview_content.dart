@@ -30,6 +30,12 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
       TextEditingController();
   final TextEditingController _stockTrendController = TextEditingController();
   final TextEditingController _conclusionController = TextEditingController();
+  final TextEditingController _companyDescriptionResearchController =
+      TextEditingController();
+  final TextEditingController _revenueSegmentsResearchController =
+      TextEditingController();
+  final TextEditingController _epsDetailsResearchController =
+      TextEditingController();
   final TextEditingController _rawResearchController = TextEditingController();
   final TextEditingController _baseUrlController = TextEditingController(
     text: 'http://localhost:11434',
@@ -64,6 +70,9 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     _earningsSignalController.addListener(_markEarningsSignalEdited);
     _analystRatingController.addListener(_markAnalystRatingEdited);
     _stockTrendController.addListener(_markStockTrendEdited);
+    _companyDescriptionResearchController.addListener(_markRawResearchEdited);
+    _revenueSegmentsResearchController.addListener(_markRawResearchEdited);
+    _epsDetailsResearchController.addListener(_markRawResearchEdited);
     _rawResearchController.addListener(_markRawResearchEdited);
     _baseUrlController.addListener(_scheduleSave);
     _modelController.addListener(_scheduleSave);
@@ -79,6 +88,9 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     _analystRatingController,
     _stockTrendController,
     _conclusionController,
+    _companyDescriptionResearchController,
+    _revenueSegmentsResearchController,
+    _epsDetailsResearchController,
     _rawResearchController,
   ];
 
@@ -141,6 +153,11 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     _analystRatingController.text = '${data['analystRating'] ?? ''}';
     _stockTrendController.text = '${data['stockTrend'] ?? ''}';
     _conclusionController.text = '${data['conclusion'] ?? ''}';
+    _companyDescriptionResearchController.text =
+        '${data['companyDescriptionResearch'] ?? ''}';
+    _revenueSegmentsResearchController.text =
+        '${data['revenueSegmentsResearch'] ?? ''}';
+    _epsDetailsResearchController.text = '${data['epsDetailsResearch'] ?? ''}';
     _rawResearchController.text = '${data['rawResearch'] ?? ''}';
     _provider = AiAnalysisProvider.values.firstWhere(
       (provider) => provider.name == '${data['provider'] ?? ''}',
@@ -209,6 +226,11 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
         'analystRating': _analystRatingController.text.trim(),
         'stockTrend': _stockTrendController.text.trim(),
         'conclusion': _conclusionController.text.trim(),
+        'companyDescriptionResearch': _companyDescriptionResearchController.text
+            .trim(),
+        'revenueSegmentsResearch': _revenueSegmentsResearchController.text
+            .trim(),
+        'epsDetailsResearch': _epsDetailsResearchController.text.trim(),
         'rawResearch': _rawResearchController.text.trim(),
         'earningsSignalCheckedAt': _earningsSignalCheckedAt?.toIso8601String(),
         'analystRatingCheckedAt': _analystRatingCheckedAt?.toIso8601String(),
@@ -241,9 +263,10 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     final baseUrl = _baseUrlController.text.trim();
     final apiKey = _apiKeyController.text.trim();
 
-    if (_rawResearchController.text.trim().isEmpty) {
+    final sourceResearch = _combinedSourceResearch;
+    if (sourceResearch.trim().isEmpty) {
       setState(() {
-        _errorMessage = 'Paste raw research before generating.';
+        _errorMessage = 'Paste source data before generating.';
       });
       return;
     }
@@ -268,7 +291,7 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
         model: model,
         apiKey: apiKey,
         ticker: widget.ticker,
-        rawResearch: _rawResearchController.text,
+        rawResearch: sourceResearch,
       );
 
       if (!mounted) {
@@ -385,6 +408,35 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     _scheduleSave();
   }
 
+  String get _combinedSourceResearch {
+    final sections = [
+      _sourceResearchBlock(
+        'Company description',
+        _companyDescriptionResearchController.text,
+      ),
+      _sourceResearchBlock(
+        'Revenue segment table',
+        _revenueSegmentsResearchController.text,
+      ),
+      _sourceResearchBlock(
+        'EPS / earnings details',
+        _epsDetailsResearchController.text,
+      ),
+      _sourceResearchBlock('Other research notes', _rawResearchController.text),
+    ].where((section) => section.trim().isNotEmpty);
+
+    return sections.join('\n\n');
+  }
+
+  String _sourceResearchBlock(String title, String value) {
+    final text = value.trim();
+    if (text.isEmpty) {
+      return '';
+    }
+
+    return '[$title]\n$text';
+  }
+
   @override
   void dispose() {
     _saveDebounce?.cancel();
@@ -465,7 +517,7 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
             },
           ),
           const SizedBox(height: 16),
-          _rawResearchField(),
+          _sourcePasteZones(),
           const SizedBox(height: 16),
           _AiDraftControls(
             provider: _provider,
@@ -789,22 +841,45 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     );
   }
 
-  Widget _rawResearchField() {
+  Widget _sourcePasteZones() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        TextField(
+        const Text(
+          'Source Paste Zones',
+          style: TextStyle(fontWeight: FontWeight.w600),
+        ),
+        const SizedBox(height: 8),
+        _pasteZoneField(
+          controller: _companyDescriptionResearchController,
+          labelText: 'Company Description',
+          hintText:
+              'Paste profile text, 10-K business description, investor-relations overview, or Stock Analysis company summary.',
+          icon: Icons.business_outlined,
+        ),
+        const SizedBox(height: 12),
+        _pasteZoneField(
+          controller: _revenueSegmentsResearchController,
+          labelText: 'Revenue Segment Table',
+          hintText:
+              'Paste segment revenue, product mix, geography breakdown, or management commentary on revenue concentration.',
+          icon: Icons.table_chart_outlined,
+        ),
+        const SizedBox(height: 12),
+        _pasteZoneField(
+          controller: _epsDetailsResearchController,
+          labelText: 'EPS / Earnings Details',
+          hintText:
+              'Paste next earnings date, EPS estimate, whisper number, recent beats/misses, or earnings reaction notes.',
+          icon: Icons.event_available_outlined,
+        ),
+        const SizedBox(height: 12),
+        _pasteZoneField(
           controller: _rawResearchController,
-          minLines: 4,
-          maxLines: 8,
-          decoration: const InputDecoration(
-            labelText: 'Raw Research / Paste Zone',
-            hintText:
-                'Paste company description, StockAnalysis stats, revenue breakdown, or EarningsWhispers notes here.',
-            border: OutlineInputBorder(),
-            alignLabelWithHint: true,
-            prefixIcon: Icon(Icons.content_paste_search),
-          ),
+          labelText: 'Other Research Notes',
+          hintText:
+              'Paste analyst snippets, stock trend notes, product notes, or any source text that does not fit above.',
+          icon: Icons.content_paste_search,
         ),
         const SizedBox(height: 6),
         Row(
@@ -828,6 +903,26 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _pasteZoneField({
+    required TextEditingController controller,
+    required String labelText,
+    required String hintText,
+    required IconData icon,
+  }) {
+    return TextField(
+      controller: controller,
+      minLines: 3,
+      maxLines: 7,
+      decoration: InputDecoration(
+        labelText: labelText,
+        hintText: hintText,
+        border: const OutlineInputBorder(),
+        alignLabelWithHint: true,
+        prefixIcon: Icon(icon),
+      ),
     );
   }
 
