@@ -29,6 +29,7 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
   final TextEditingController _analystRatingController =
       TextEditingController();
   final TextEditingController _stockTrendController = TextEditingController();
+  final TextEditingController _conclusionController = TextEditingController();
   final TextEditingController _rawResearchController = TextEditingController();
   final TextEditingController _baseUrlController = TextEditingController(
     text: 'http://localhost:11434',
@@ -77,6 +78,7 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     _earningsSignalController,
     _analystRatingController,
     _stockTrendController,
+    _conclusionController,
     _rawResearchController,
   ];
 
@@ -138,6 +140,7 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
     _earningsSignalController.text = '${data['earningsSignal'] ?? ''}';
     _analystRatingController.text = '${data['analystRating'] ?? ''}';
     _stockTrendController.text = '${data['stockTrend'] ?? ''}';
+    _conclusionController.text = '${data['conclusion'] ?? ''}';
     _rawResearchController.text = '${data['rawResearch'] ?? ''}';
     _provider = AiAnalysisProvider.values.firstWhere(
       (provider) => provider.name == '${data['provider'] ?? ''}',
@@ -205,6 +208,7 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
         'earningsSignal': _earningsSignalController.text.trim(),
         'analystRating': _analystRatingController.text.trim(),
         'stockTrend': _stockTrendController.text.trim(),
+        'conclusion': _conclusionController.text.trim(),
         'rawResearch': _rawResearchController.text.trim(),
         'earningsSignalCheckedAt': _earningsSignalCheckedAt?.toIso8601String(),
         'analystRatingCheckedAt': _analystRatingCheckedAt?.toIso8601String(),
@@ -279,6 +283,7 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
       _earningsSignalController.text = draft.earningsSignal;
       _analystRatingController.text = draft.analystRating;
       _stockTrendController.text = draft.stockTrend;
+      _conclusionController.text = draft.conclusion;
       final checkedAt = DateTime.now();
       _earningsSignalCheckedAt = checkedAt;
       _analystRatingCheckedAt = checkedAt;
@@ -588,6 +593,15 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
                   minLines: 2,
                 ),
               ),
+              EditableTableRow(
+                label: 'Conclusion',
+                value: _textField(
+                  controller: _conclusionController,
+                  hintText:
+                      'Investor takeaway: is the business understandable, durable, and worth deeper valuation work?',
+                  minLines: 2,
+                ),
+              ),
             ],
           ),
           const SizedBox(height: 16),
@@ -673,6 +687,12 @@ class _BusinessOverviewContentState extends State<BusinessOverviewContent> {
           ),
           icon: Icons.show_chart,
           tone: AppSummaryTone.neutral,
+        ),
+        NotionSummaryBullet(
+          label: 'Conclusion',
+          value: _conclusionController.text.trim(),
+          icon: Icons.summarize_outlined,
+          tone: AppSummaryTone.info,
         ),
         NotionSummaryBullet(
           label: 'Checked quality signals',

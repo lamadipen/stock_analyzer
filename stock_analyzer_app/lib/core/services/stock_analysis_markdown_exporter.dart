@@ -215,6 +215,7 @@ class StockAnalysisMarkdownExporter {
       'Stock Trend Last Checked',
       _formatOptionalDateTime(overview.stockTrendCheckedAt),
     );
+    _writeBullet(buffer, 'Conclusion', overview.conclusion);
 
     if (overview.items.isNotEmpty) {
       buffer

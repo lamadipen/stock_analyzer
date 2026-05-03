@@ -67,6 +67,7 @@ class SectionCompletionRules {
           'earningsSignal',
           'analystRating',
           'stockTrend',
+          'conclusion',
         ]) &&
         _checkedCount(data['items']) >= 5;
   }

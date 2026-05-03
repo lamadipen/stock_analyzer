@@ -13,6 +13,7 @@ void main() {
           'earningsSignal': 'EPS expected to grow',
           'analystRating': 'Buy consensus',
           'stockTrend': 'Long-term uptrend',
+          'conclusion': 'Strong business; continue to valuation.',
           'items': [
             {'isChecked': true},
             {'isChecked': true},

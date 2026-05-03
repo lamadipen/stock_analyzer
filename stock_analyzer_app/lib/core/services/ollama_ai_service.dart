@@ -381,7 +381,8 @@ Return exactly these JSON keys:
   "growthDriver": "",
   "earningsSignal": "",
   "analystRating": "",
-  "stockTrend": ""
+  "stockTrend": "",
+  "conclusion": ""
 }
 
 Ticker: ${ticker.toUpperCase()}
@@ -401,6 +402,7 @@ class BusinessOverviewDraft {
     required this.earningsSignal,
     required this.analystRating,
     required this.stockTrend,
+    required this.conclusion,
   });
 
   final String businessModel;
@@ -410,6 +412,7 @@ class BusinessOverviewDraft {
   final String earningsSignal;
   final String analystRating;
   final String stockTrend;
+  final String conclusion;
 
   factory BusinessOverviewDraft.fromAiResponse(String response) {
     final jsonText = _extractJsonObject(response);
@@ -428,6 +431,7 @@ class BusinessOverviewDraft {
       earningsSignal: _readString(decoded, 'earningsSignal'),
       analystRating: _readString(decoded, 'analystRating'),
       stockTrend: _readString(decoded, 'stockTrend'),
+      conclusion: _readString(decoded, 'conclusion'),
     );
   }
 

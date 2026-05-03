@@ -26,6 +26,7 @@ void main() {
         'businessModel': 'Subscription software',
         'analystRating': 'Buy consensus',
         'analystRatingCheckedAt': '2026-05-01T09:30:00.000',
+        'conclusion': 'Strong business; verify valuation.',
         'items': [
           {'title': 'Clear business model', 'isChecked': true},
         ],
@@ -35,9 +36,14 @@ void main() {
       expect(overview.hasResearchNotes, isTrue);
       expect(overview.analystRating, 'Buy consensus');
       expect(overview.analystRatingCheckedAt?.year, 2026);
+      expect(overview.conclusion, 'Strong business; verify valuation.');
       expect(overview.items.single.title, 'Clear business model');
       expect(overview.toJson()['qualityLabel'], 'Strong');
       expect(overview.toJson()['analystRating'], 'Buy consensus');
+      expect(
+        overview.toJson()['conclusion'],
+        'Strong business; verify valuation.',
+      );
     });
 
     test('SaleTargetSection round trips targets and calculated values', () {

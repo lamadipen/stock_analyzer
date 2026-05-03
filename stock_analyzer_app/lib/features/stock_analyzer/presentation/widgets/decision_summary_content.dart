@@ -562,6 +562,7 @@ class _DecisionSummaryContentState extends State<DecisionSummaryContent> {
           businessOverview.stockTrendCheckedAt,
         ),
       ),
+      _noteLine('Conclusion', businessOverview.conclusion),
       '[/Business Overview]',
     ];
 
