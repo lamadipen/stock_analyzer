@@ -39,6 +39,8 @@ class StockAnalysisStorage {
   static const String competitorStudySection = 'competitorStudy';
   static const String decisionSummarySection = 'decisionSummary';
   static const String economicMoatSection = 'economicMoat';
+  static const String growthDriverSection = 'growthDriver';
+  static const String investmentRisksSection = 'investmentRisks';
   static const String marginOfSafetySection = 'marginOfSafety';
   static const String priceAlertsSection = 'priceAlerts';
   static const String saleTargetSection = 'saleTarget';

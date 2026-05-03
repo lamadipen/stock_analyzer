@@ -43,6 +43,7 @@ class StockAnalysisMarkdownExporter {
       data[StockAnalysisStorage.competitorStudySection],
     );
     _writeEconomicMoat(buffer, data[StockAnalysisStorage.economicMoatSection]);
+    _writeGrowthDriver(buffer, data[StockAnalysisStorage.growthDriverSection]);
     _writeValuationMethod(
       buffer,
       data[StockAnalysisStorage.valuationMethodSection],
@@ -50,6 +51,10 @@ class StockAnalysisMarkdownExporter {
     _writeMarginOfSafety(
       buffer,
       data[StockAnalysisStorage.marginOfSafetySection],
+    );
+    _writeInvestmentRisks(
+      buffer,
+      data[StockAnalysisStorage.investmentRisksSection],
     );
     _writeSaleTargets(buffer, data[StockAnalysisStorage.saleTargetSection]);
 
@@ -309,6 +314,25 @@ class StockAnalysisMarkdownExporter {
     buffer.writeln();
   }
 
+  static void _writeGrowthDriver(StringBuffer buffer, Object? value) {
+    final data = _asMap(value);
+    if (data == null) {
+      return;
+    }
+
+    buffer
+      ..writeln('## Growth Driver')
+      ..writeln();
+
+    _writeBullet(buffer, 'Growth Thesis', data['growthThesis']);
+    _writeBullet(buffer, 'Demand Drivers', data['demandDrivers']);
+    _writeBullet(buffer, 'Evidence', data['evidence']);
+    _writeBullet(buffer, 'Watchouts', data['watchouts']);
+    _writeBullet(buffer, 'Source Notes', data['sourceNotes']);
+    _writeChecklist(buffer, data['items']);
+    buffer.writeln();
+  }
+
   static void _writeValuationMethod(StringBuffer buffer, Object? value) {
     final data = _asMap(value);
     if (data == null) {
@@ -380,6 +404,42 @@ class StockAnalysisMarkdownExporter {
     }
 
     buffer.writeln();
+  }
+
+  static void _writeInvestmentRisks(StringBuffer buffer, Object? value) {
+    final data = _asMap(value);
+    if (data == null) {
+      return;
+    }
+
+    buffer
+      ..writeln('## Investment Risks')
+      ..writeln();
+
+    _writeBullet(buffer, 'Business Risk', data['businessRisk']);
+    _writeBullet(buffer, 'Financial Risk', data['financialRisk']);
+    _writeBullet(buffer, 'Valuation Risk', data['valuationRisk']);
+    _writeBullet(buffer, 'Mitigation / Trigger', data['mitigation']);
+    _writeBullet(buffer, 'Source Notes', data['sourceNotes']);
+    _writeChecklist(buffer, data['items']);
+    buffer.writeln();
+  }
+
+  static void _writeChecklist(StringBuffer buffer, Object? value) {
+    if (value is! List || value.isEmpty) {
+      return;
+    }
+
+    buffer
+      ..writeln()
+      ..writeln('### Checklist')
+      ..writeln();
+
+    for (final item in value.whereType<Map<String, dynamic>>()) {
+      final mark = item['isChecked'] == true ? 'x' : ' ';
+      final title = '${item['title'] ?? ''}'.trim();
+      buffer.writeln('- [$mark] ${title.isEmpty ? 'Checklist item' : title}');
+    }
   }
 
   static void _writeSaleTargets(StringBuffer buffer, Object? value) {

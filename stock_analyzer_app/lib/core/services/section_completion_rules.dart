@@ -7,10 +7,12 @@ class SectionCompletionRules {
     'Business Overview': 'businessOverview',
     'Competitor Study': 'competitorStudy',
     'Economic Moat': 'economicMoat',
+    'Growth Driver': 'growthDriver',
     'Valuation Method': 'valuationMethod',
     'Margin of Safety': 'marginOfSafety',
     'Price Alerts / Target Tracking': 'priceAlerts',
     'Sale Target': 'saleTarget',
+    'Investment Risks': 'investmentRisks',
   };
 
   static bool isComplete({
@@ -36,6 +38,7 @@ class SectionCompletionRules {
       'Business Overview' => _businessOverviewComplete(data),
       'Competitor Study' => _competitorStudyComplete(data),
       'Economic Moat' => _checkedCount(data['items']) >= 4,
+      'Growth Driver' => _growthDriverComplete(data),
       'Valuation Method' => _checkedCount(data['checked']) > 0,
       'Margin of Safety' => _marginOfSafetyComplete(data),
       'Price Alerts / Target Tracking' => _hasAllText(data, const [
@@ -45,6 +48,7 @@ class SectionCompletionRules {
         'marginOfSafetyPrice',
       ]),
       'Sale Target' => _saleTargetComplete(data),
+      'Investment Risks' => _investmentRisksComplete(data),
       _ => false,
     };
   }
@@ -86,6 +90,26 @@ class SectionCompletionRules {
     }).length;
 
     return completedParameters >= 5;
+  }
+
+  static bool _growthDriverComplete(Map<String, dynamic> data) {
+    return _hasAllText(data, const [
+          'growthThesis',
+          'demandDrivers',
+          'evidence',
+          'watchouts',
+        ]) &&
+        _checkedCount(data['items']) >= 3;
+  }
+
+  static bool _investmentRisksComplete(Map<String, dynamic> data) {
+    return _hasAllText(data, const [
+          'businessRisk',
+          'financialRisk',
+          'valuationRisk',
+          'mitigation',
+        ]) &&
+        _checkedCount(data['items']) >= 3;
   }
 
   static bool _marginOfSafetyComplete(Map<String, dynamic> data) {
